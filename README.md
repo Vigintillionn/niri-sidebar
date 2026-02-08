@@ -40,25 +40,37 @@ cp target/release/niri-sidebar ~/.local/bin/
 
 Add the following bindings to your niri.kdl config file.
 
+**Important:** These examples assume you installed the tool to `~/.local/bin`. If you installed it elsewhere, update the paths accordingly.
+
 **Note:** It is highly recommended to replace your default "Close Window" bind with niri-sidebar close. This command checks if the window is in the sidebar first. If it is, it cleanly removes it and reorders the stack. If it's a normal window, it just closes it like normal.
 
 ```kdl
 binds {
     // Toggle the focused window into/out of the sidebar
-    Mod+S { spawn-sh "niri-sidebar toggle-window"; }
+    Mod+S { spawn-sh "~/.local/bin/niri-sidebar toggle-window"; }
 
     // Toggle sidebar visibility (hide/show)
-    Mod+Shift+S { spawn-sh "niri-sidebar toggle-visibility"; }
+    Mod+Shift+S { spawn-sh "~/.local/bin/niri-sidebar toggle-visibility"; }
 
     // Flip the order of the sidebar
-    Mod+Ctrl+S { spawn-sh "niri-sidebar flip"; }
+    Mod+Ctrl+S { spawn-sh "~/.local/bin/niri-sidebar flip"; }
 
     // Force reorder (useful if something gets misaligned manually)
-    Mod+Alt+R { spawn-sh "niri-sidebar reorder"; }
+    Mod+Alt+R { spawn-sh "~/.local/bin/niri-sidebar reorder"; }
 
     // RECOMMENDED: Replacement Close Bind
     // Keeps the sidebar gap-free when closing a sidebar window.
-    Mod+Q { spawn-sh "niri-sidebar close"; }
+    Mod+Q { spawn-sh "~/.local/bin/niri-sidebar close"; }
+}
+```
+
+Some applications enforce a minimum window size that is larger than your sidebar configuration, which can cause windows to overlap or look broken. Add this rule to force them to respect the sidebar size:
+
+```kdl
+window-rule {
+    match is-floating=true
+    min-width 100
+    min-height 100
 }
 ```
 
