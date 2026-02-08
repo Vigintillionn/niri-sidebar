@@ -4,6 +4,8 @@ A lightweight, external sidebar manager for the [Niri](https://github.com/YaLTeR
 
 `niri-sidebar` allows you to toggle any window into a "floating sidebar" stack on the right side of your screen. It automatically handles resizing, positioning, and stacking, keeping your main workspace clean while keeping utility apps (terminals, music players, chats) accessible.
 
+https://github.com/user-attachments/assets/46f51b18-d85b-4d79-9c44-63e63649707a
+
 ## Features
 
 - **Toggle Windows:** Instantly move the focused window into the sidebar stack.
