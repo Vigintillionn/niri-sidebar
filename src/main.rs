@@ -4,12 +4,18 @@ mod niri;
 mod state;
 
 use anyhow::Result;
-use clap::{Parser, Subcommand};
+use clap::{Parser, Subcommand, ValueEnum};
 use fslock::LockFile;
 use niri_ipc::socket::Socket;
 
 use crate::config::Config;
 use crate::state::AppState;
+
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum, Debug)]
+pub enum Direction {
+    Next,
+    Prev,
+}
 
 #[derive(Parser)]
 #[command(name = "niri-sidebar")]
@@ -31,6 +37,11 @@ enum Commands {
     Reorder,
     /// Close the focused window and reorder the sidebar
     Close,
+    /// Focus and cycle through the windows in the sidebar
+    Focus {
+        #[arg(value_enum, default_value_t = Direction::Next)]
+        direction: Direction,
+    },
     /// Generate a default config file if none exists
     Init,
     /// Run a daemon to listen for window close events
@@ -80,6 +91,7 @@ fn main() -> Result<()> {
         Commands::Flip => commands::toggle_flip(&mut ctx)?,
         Commands::Reorder => commands::reorder(&mut ctx)?,
         Commands::Close => commands::close(&mut ctx)?,
+        Commands::Focus { direction } => commands::focus(&mut ctx, direction)?,
         Commands::Init => unreachable!(),
         Commands::Listen => commands::listen(ctx)?,
     }

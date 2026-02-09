@@ -13,6 +13,14 @@ pub fn get_windows(socket: &mut Socket) -> Result<Vec<Window>> {
     }
 }
 
+pub fn get_active_window(socket: &mut Socket) -> Result<Window> {
+    let windows = get_windows(socket)?;
+    windows
+        .into_iter()
+        .find(|w| w.is_focused)
+        .context("No focused window.")
+}
+
 pub fn get_active_workspace(socket: &mut Socket) -> Result<Workspace> {
     match socket.send(Request::Workspaces)? {
         Ok(Response::Workspaces(workspaces)) => workspaces
