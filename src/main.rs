@@ -6,9 +6,9 @@ mod state;
 use anyhow::Result;
 use clap::{Parser, Subcommand, ValueEnum};
 use fslock::LockFile;
-use niri_ipc::socket::Socket;
 
 use crate::config::Config;
+use crate::niri::NiriClient;
 use crate::state::AppState;
 
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum, Debug)]
@@ -48,10 +48,10 @@ enum Commands {
     Listen,
 }
 
-pub struct Ctx {
+pub struct Ctx<C: NiriClient> {
     pub state: AppState,
     pub config: Config,
-    pub socket: Socket,
+    pub socket: C,
 }
 
 fn main() -> Result<()> {

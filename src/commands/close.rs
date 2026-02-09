@@ -1,12 +1,13 @@
 use crate::Ctx;
 use crate::commands::reorder;
-use crate::niri::get_windows;
+use crate::niri::NiriClient;
 use crate::state::save_state;
 use anyhow::{Context, Result};
-use niri_ipc::{Action, Request};
+use niri_ipc::Action;
+use niri_ipc::socket::Socket;
 
-pub fn close(ctx: &mut Ctx) -> Result<()> {
-    let windows = get_windows(&mut ctx.socket)?;
+pub fn close(ctx: &mut Ctx<Socket>) -> Result<()> {
+    let windows = ctx.socket.get_windows()?;
     let focused = windows
         .iter()
         .find(|w| w.is_focused)
@@ -22,10 +23,9 @@ pub fn close(ctx: &mut Ctx) -> Result<()> {
         save_state(&ctx.state)?;
     }
 
-    let action = Action::CloseWindow {
+    let _ = ctx.socket.send_action(Action::CloseWindow {
         id: Some(focused.id),
-    };
-    let _ = ctx.socket.send(Request::Action(action))?;
+    });
     reorder(ctx)?;
 
     Ok(())

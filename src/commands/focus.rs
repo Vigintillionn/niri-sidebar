@@ -1,16 +1,17 @@
-use crate::niri::get_active_window;
+use crate::niri::NiriClient;
 use crate::{Ctx, Direction};
 use anyhow::Result;
-use niri_ipc::{Action, Request};
+use niri_ipc::Action;
+use niri_ipc::socket::Socket;
 
-pub fn focus(ctx: &mut Ctx, direction: Direction) -> Result<()> {
+pub fn focus(ctx: &mut Ctx<Socket>, direction: Direction) -> Result<()> {
     let len = ctx.state.windows.len();
 
     if len == 0 {
         return Ok(());
     }
 
-    let active_window = get_active_window(&mut ctx.socket)?.id;
+    let active_window = ctx.socket.get_active_window()?.id;
     let current_index_opt = ctx
         .state
         .windows
@@ -30,8 +31,7 @@ pub fn focus(ctx: &mut Ctx, direction: Direction) -> Result<()> {
     };
 
     if let Some((id, _, _)) = ctx.state.windows.get(next_index) {
-        let focus = Action::FocusWindow { id: *id };
-        let _ = ctx.socket.send(Request::Action(focus));
+        let _ = ctx.socket.send_action(Action::FocusWindow { id: *id });
     }
 
     Ok(())

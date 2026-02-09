@@ -5,9 +5,10 @@ use crate::niri::connect;
 use crate::state::{AppState, get_cache_dir, load_state, save_state};
 use anyhow::Result;
 use fslock::LockFile;
+use niri_ipc::socket::Socket;
 use niri_ipc::{Event, Request};
 
-pub fn listen(mut ctx: Ctx) -> Result<()> {
+pub fn listen(mut ctx: Ctx<Socket>) -> Result<()> {
     let _ = ctx.socket.send(Request::EventStream)?;
     let mut read_event = ctx.socket.read_events();
     println!("niri-sidebar: Listening for window events...");

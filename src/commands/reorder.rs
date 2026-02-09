@@ -1,14 +1,16 @@
 use std::collections::HashSet;
 
+use crate::Ctx;
+use crate::niri::NiriClient;
 use crate::state::save_state;
-use crate::{Ctx, niri};
 use anyhow::Result;
+use niri_ipc::socket::Socket;
 use niri_ipc::{Action, PositionChange, Request};
 
-pub fn reorder(ctx: &mut Ctx) -> Result<()> {
-    let (display_w, display_h) = niri::get_screen_dimensions(&mut ctx.socket)?;
-    let current_ws = niri::get_active_workspace_id(&mut ctx.socket)?;
-    let all_windows = niri::get_windows(&mut ctx.socket)?;
+pub fn reorder(ctx: &mut Ctx<Socket>) -> Result<()> {
+    let (display_w, display_h) = ctx.socket.get_screen_dimensions()?;
+    let current_ws = ctx.socket.get_active_workspace()?.id;
+    let all_windows = ctx.socket.get_windows()?;
 
     let sidebar_ids: Vec<u64> = ctx.state.windows.iter().map(|(id, _, _)| *id).collect();
     let mut sidebar_windows: Vec<_> = all_windows
