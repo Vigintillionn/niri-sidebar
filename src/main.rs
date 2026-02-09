@@ -31,6 +31,10 @@ enum Commands {
     Reorder,
     /// Close the focused window and reorder the sidebar
     Close,
+    /// Focus the next sidebar window
+    FocusNext,
+    /// Focus the previous sidebar window
+    FocusPrev,
     /// Generate a default config file if none exists
     Init,
     /// Run a daemon to listen for window close events
@@ -80,6 +84,8 @@ fn main() -> Result<()> {
         Commands::Flip => commands::toggle_flip(&mut ctx)?,
         Commands::Reorder => commands::reorder(&mut ctx)?,
         Commands::Close => commands::close(&mut ctx)?,
+        Commands::FocusNext => commands::focus_cycle(&mut ctx, commands::Direction::Next)?,
+        Commands::FocusPrev => commands::focus_cycle(&mut ctx, commands::Direction::Prev)?,
         Commands::Init => unreachable!(),
         Commands::Listen => commands::listen(ctx)?,
     }

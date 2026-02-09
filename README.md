@@ -9,6 +9,7 @@ https://github.com/user-attachments/assets/46f51b18-d85b-4d79-9c44-63e63649707a
 ## Features
 
 - **Toggle Windows:** Instantly move the focused window into the sidebar stack.
+- **Keyboard-Driven Focus:** Cycle through sidebar windows with `focus-next`/`focus-prev`, then pull one out or return to tiling — no mouse needed.
 - **Auto-Stacking:** Windows automatically stack vertically with a configurable gap.
 - **Smart Close:** Closing a sidebar window automatically reorders the remaining windows to fill the gap.
 - **Flip & Hide:** Flip the stack to the other side of the screen or hide it completely (peeking mode).
@@ -55,18 +56,50 @@ binds {
     // Flip the order of the sidebar
     Mod+Ctrl+S { spawn-sh "~/.local/bin/niri-sidebar flip"; }
 
+    // Focus the next sidebar window
+    Mod+J { spawn-sh "~/.local/bin/niri-sidebar focus-next"; }
+
+    // Focus the previous sidebar window
+    Mod+K { spawn-sh "~/.local/bin/niri-sidebar focus-prev"; }
+
     // Force reorder (useful if something gets misaligned manually)
     Mod+Alt+R { spawn-sh "~/.local/bin/niri-sidebar reorder"; }
 }
 ```
 
-In order for your sidebar to stay consistent and gap free, you want to add the following to your startup scripts
+### Seamless tiling/sidebar navigation
+
+When a sidebar window is focused, niri's native `focus-column-left`/`focus-column-right` won't return you to the tiling layout. To make `Mod+H`/`Mod+L` context-aware — returning to tiling when on a sidebar window, or moving between columns when already in tiling — create a helper script at `~/.local/bin/niri-focus-column`:
+
+```sh
+#!/bin/sh
+if niri msg focused-window 2>/dev/null | grep -q "Is floating: yes"; then
+    niri msg action focus-tiling
+else
+    niri msg action "focus-column-$1"
+fi
+```
+
+Then bind it in place of the native actions:
+
+```kdl
+binds {
+    Mod+H { spawn-sh "~/.local/bin/niri-focus-column left"; }
+    Mod+L { spawn-sh "~/.local/bin/niri-focus-column right"; }
+}
+```
+
+### Startup daemon
+
+In order for your sidebar to stay consistent and gap free, you want to add the following to your startup scripts:
 
 ```kdl
 spawn-at-startup "~/.local/bin/niri-sidebar" "listen"
 ```
 
 This will spawn a daemon to listen for window close events and reorder the sidebar if the closed window was part of it.
+
+### Window rules
 
 Some applications enforce a minimum window size that is larger than your sidebar configuration, which can cause windows to overlap or look broken. Add this rule to force them to respect the sidebar size:
 
@@ -108,8 +141,13 @@ peek = 10
 
 ## Workflow tips
 
-- **Adding/Removing:** Press `Mod+S` on any window to snap it into the sidebar. Press it again to return it to your normal tiling layout.
-- **Hiding:** Press `Mod+Shift+S` to tuck the sidebar away. It will stick out slightly (configured by peek) so you know it's there.
+- **Adding:** Focus a tiling window and press `Mod+S` to snap it into the sidebar.
+- **Browsing the sidebar:** Press `Mod+J` to enter at the bottom of the sidebar, `Mod+K` to enter at the top. Subsequent presses cycle through the stack with wrap-around.
+- **Pulling a window out:** Press `Mod+S` on a focused sidebar window to return it to tiling. Focus automatically moves back to the tiling layout.
+- **Returning to tiling:** Press `Mod+H` (with the helper script above) to leave the sidebar and return to your tiling columns without pulling anything out.
+- **Hiding:** Press `Mod+Shift+S` to tuck the sidebar away. It will stick out slightly (configured by `peek`) so you know it's there.
+
+**Typical session:** Tiling as usual with `Mod+H`/`Mod+L` → `Mod+S` to push a window to the sidebar → `Mod+J`/`Mod+K` to browse → `Mod+S` to pull one back out, or `Mod+H` to return to tiling empty-handed.
 
 ## License
 

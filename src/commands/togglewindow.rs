@@ -81,5 +81,8 @@ fn remove_from_sidebar(ctx: &mut Ctx, window: &Window) -> Result<()> {
         let _ = ctx.socket.send(Request::Action(toggle_float))?;
     }
 
+    // Return focus to the tiling layout so keyboard navigation works immediately
+    let _ = ctx.socket.send(Request::Action(Action::FocusTiling {}))?;
+
     Ok(())
 }
