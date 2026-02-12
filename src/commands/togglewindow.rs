@@ -6,19 +6,14 @@ use anyhow::{Context, Result};
 use niri_ipc::{Action, SizeChange, Window};
 
 pub fn toggle_window<C: NiriClient>(ctx: &mut Ctx<C>) -> Result<()> {
-    let windows = ctx.socket.get_windows()?;
-
-    let focused = windows
-        .iter()
-        .find(|w| w.is_focused)
-        .context("No window focused")?;
+    let focused = ctx.socket.get_active_window()?;
 
     let is_tracked = ctx.state.windows.iter().any(|(id, _, _)| *id == focused.id);
 
     if is_tracked {
-        remove_from_sidebar(ctx, focused)?;
+        remove_from_sidebar(ctx, &focused)?;
     } else {
-        add_to_sidebar(ctx, focused)?;
+        add_to_sidebar(ctx, &focused)?;
     }
 
     save_state(&ctx.state, &ctx.cache_dir)?;
