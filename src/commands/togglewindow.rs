@@ -1,7 +1,7 @@
-use crate::Ctx;
 use crate::commands::reorder;
 use crate::niri::NiriClient;
 use crate::state::save_state;
+use crate::{Ctx, config::WindowRule};
 use anyhow::{Context, Result};
 use niri_ipc::{Action, SizeChange, Window};
 
@@ -32,13 +32,18 @@ fn add_to_sidebar<C: NiriClient>(ctx: &mut Ctx<C>, window: &Window) -> Result<()
         });
     }
 
+    let (target_width, target_height) = match resolve_window_size(&ctx.config.window_rule, window) {
+        Some((w, h)) => (w, h),
+        None => (ctx.config.geometry.width, ctx.config.geometry.height),
+    };
+
     let _ = ctx.socket.send_action(Action::SetWindowWidth {
-        change: SizeChange::SetFixed(ctx.config.geometry.width),
+        change: SizeChange::SetFixed(target_width),
         id: Some(window.id),
     });
 
     let _ = ctx.socket.send_action(Action::SetWindowHeight {
-        change: SizeChange::SetFixed(ctx.config.geometry.height),
+        change: SizeChange::SetFixed(target_height),
         id: Some(window.id),
     });
 
