@@ -45,6 +45,27 @@ fn add_to_sidebar<C: NiriClient>(ctx: &mut Ctx<C>, window: &Window) -> Result<()
     Ok(())
 }
 
+fn resolve_window_size(rules: &Vec<WindowRule>, window: &Window) -> Option<(i32, i32)> {
+    for rule in rules {
+        let app_ok = match (&rule.app_id, &window.app_id) {
+            (None, _) => true,
+            (Some(re), Some(id)) => re.is_match(id),
+            (Some(_), None) => false,
+        };
+
+        let title_ok = match (&rule.title, &window.title) {
+            (None, _) => true,
+            (Some(re), Some(title)) => re.is_match(title),
+            (Some(_), None) => false,
+        };
+
+        if title_ok && app_ok {
+            return Some((rule.width, rule.height));
+        }
+    }
+    None
+}
+
 fn remove_from_sidebar<C: NiriClient>(ctx: &mut Ctx<C>, window: &Window) -> Result<()> {
     let index = ctx
         .state
