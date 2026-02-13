@@ -79,6 +79,8 @@ pub struct WindowRule {
     pub title: Option<Regex>,
     pub width: Option<i32>,
     pub height: Option<i32>,
+    pub peek: Option<i32>,
+    pub focus_peek: Option<i32>,
 }
 
 impl Default for Config {
