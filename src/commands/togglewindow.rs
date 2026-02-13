@@ -1,8 +1,8 @@
+use crate::Ctx;
 use crate::commands::reorder;
 use crate::niri::NiriClient;
 use crate::state::save_state;
 use crate::window_rules::resolve_window_size;
-use crate::{Ctx, config::WindowRule};
 use anyhow::{Context, Result};
 use niri_ipc::{Action, SizeChange, Window};
 
