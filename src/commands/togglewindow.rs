@@ -1,6 +1,7 @@
 use crate::commands::reorder;
 use crate::niri::NiriClient;
 use crate::state::save_state;
+use crate::window_rules::resolve_window_size;
 use crate::{Ctx, config::WindowRule};
 use anyhow::{Context, Result};
 use niri_ipc::{Action, SizeChange, Window};
@@ -50,35 +51,6 @@ fn add_to_sidebar<C: NiriClient>(ctx: &mut Ctx<C>, window: &Window) -> Result<()
     });
 
     Ok(())
-}
-
-fn resolve_window_size(
-    rules: &[WindowRule],
-    window: &Window,
-    default_w: i32,
-    default_h: i32,
-) -> (i32, i32) {
-    for rule in rules {
-        let app_ok = match (&rule.app_id, &window.app_id) {
-            (None, _) => true,
-            (Some(re), Some(id)) => re.is_match(id),
-            (Some(_), None) => false,
-        };
-
-        let title_ok = match (&rule.title, &window.title) {
-            (None, _) => true,
-            (Some(re), Some(title)) => re.is_match(title),
-            (Some(_), None) => false,
-        };
-
-        if title_ok && app_ok {
-            return (
-                rule.width.unwrap_or(default_w),
-                rule.height.unwrap_or(default_h),
-            );
-        }
-    }
-    (default_w, default_h)
 }
 
 fn remove_from_sidebar<C: NiriClient>(ctx: &mut Ctx<C>, window: &Window) -> Result<()> {
