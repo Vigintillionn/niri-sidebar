@@ -1,6 +1,7 @@
 use crate::Ctx;
 use crate::niri::NiriClient;
 use crate::state::save_state;
+use crate::window_rules::{resolve_rule_peek, resolve_window_size};
 use anyhow::Result;
 use niri_ipc::{Action, PositionChange};
 use std::collections::HashSet;
@@ -36,21 +37,33 @@ pub fn reorder<C: NiriClient>(ctx: &mut Ctx<C>) -> Result<()> {
         sidebar_windows.reverse();
     }
 
-    let sidebar_w = ctx.config.geometry.width;
-    let sidebar_h = ctx.config.geometry.height;
     let gap = ctx.config.geometry.gap;
     let off_top = ctx.config.margins.top;
     let off_right = ctx.config.margins.right;
-    let peek = ctx.config.interaction.peek;
-    let focus_peek = ctx.config.interaction.focus_peek;
 
-    let base_x = display_w - sidebar_w - off_right;
-    let hidden_x = display_w - peek;
-    let focus_hidden_x = display_w - focus_peek;
+    let mut stack_offset: i32 = 0;
 
-    let base_y = display_h - sidebar_h - off_top;
+    for window in sidebar_windows {
+        let (sidebar_w, sidebar_h) = resolve_window_size(
+            &ctx.config.window_rule,
+            window,
+            ctx.config.geometry.width,
+            ctx.config.geometry.height,
+        );
 
-    for (idx, window) in sidebar_windows.iter().enumerate() {
+        let base_x = display_w - sidebar_w - off_right;
+        let base_y = display_h - sidebar_h - off_top;
+
+        let (peek, focus_peek) = resolve_rule_peek(
+            &ctx.config.window_rule,
+            window,
+            ctx.config.interaction.peek,
+            ctx.config.interaction.focus_peek,
+        );
+
+        let hidden_x = display_w - peek;
+        let focus_hidden_x = display_w - focus_peek;
+
         let target_x = if ctx.state.is_hidden {
             if window.is_focused {
                 focus_hidden_x
@@ -61,7 +74,6 @@ pub fn reorder<C: NiriClient>(ctx: &mut Ctx<C>) -> Result<()> {
             base_x
         };
 
-        let stack_offset = idx as i32 * (sidebar_h + gap);
         let target_y = base_y - stack_offset;
 
         let _ = ctx.socket.send_action(Action::MoveFloatingWindow {
@@ -69,6 +81,7 @@ pub fn reorder<C: NiriClient>(ctx: &mut Ctx<C>) -> Result<()> {
             x: PositionChange::SetFixed(target_x.into()),
             y: PositionChange::SetFixed(target_y.into()),
         });
+        stack_offset += sidebar_h + gap;
     }
     Ok(())
 }
