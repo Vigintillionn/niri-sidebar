@@ -1,16 +1,21 @@
 use crate::config::SidebarPosition;
 use crate::niri::NiriClient;
 use crate::state::save_state;
+use crate::window_rules::{resolve_rule_focus_peek, resolve_rule_peek, resolve_window_size};
 use crate::{Ctx, WindowTarget};
 use anyhow::Result;
 use niri_ipc::{Action, PositionChange, Window};
 use std::collections::HashSet;
 
 fn resolve_dimensions<C: NiriClient>(window: &Window, ctx: &Ctx<C>) -> WindowTarget {
-    WindowTarget {
-        width: ctx.config.geometry.width,
-        height: ctx.config.geometry.height,
-    }
+    let (width, height) = resolve_window_size(
+        &ctx.config.window_rule,
+        window,
+        ctx.config.geometry.width,
+        ctx.config.geometry.height,
+    );
+
+    WindowTarget { width, height }
 }
 
 fn calculate_coordinates<C: NiriClient>(
@@ -18,20 +23,13 @@ fn calculate_coordinates<C: NiriClient>(
     dims: WindowTarget,
     screen: (i32, i32),
     stack_offset: i32,
-    is_focused: bool,
+    active_peek: i32,
     ctx: &Ctx<C>,
 ) -> (i32, i32) {
     let state = &ctx.state;
     let margins = &ctx.config.margins;
-    let interaction = &ctx.config.interaction;
     let (sw, sh) = screen;
     let (w, h) = (dims.width, dims.height);
-
-    let active_peek = if is_focused {
-        interaction.get_focus_peek()
-    } else {
-        interaction.peek
-    };
 
     match pos {
         SidebarPosition::Right => {
@@ -114,12 +112,22 @@ pub fn reorder<C: NiriClient>(ctx: &mut Ctx<C>) -> Result<()> {
     for window in sidebar_windows.iter() {
         let dims = resolve_dimensions(window, ctx);
 
+        let active_peek = if window.is_focused {
+            resolve_rule_focus_peek(
+                &ctx.config.window_rule,
+                window,
+                ctx.config.interaction.get_focus_peek(),
+            )
+        } else {
+            resolve_rule_peek(&ctx.config.window_rule, window, ctx.config.interaction.peek)
+        };
+
         let (target_x, target_y) = calculate_coordinates(
             position,
             dims,
             (display_w, display_h),
             current_stack_offset,
-            window.is_focused,
+            active_peek,
             ctx,
         );
 
