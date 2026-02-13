@@ -34,3 +34,20 @@ pub fn resolve_window_size(
     }
     (default_w, default_h)
 }
+
+pub fn resolve_rule_peek(
+    rules: &[WindowRule],
+    window: &Window,
+    default_peek: i32,
+    default_focus_peek: i32,
+) -> (i32, i32) {
+    for rule in rules {
+        if matches_window(&window.app_id, &window.title, rule) {
+            return (
+                rule.peek.unwrap_or(default_peek),
+                rule.focus_peek.unwrap_or(default_focus_peek),
+            );
+        }
+    }
+    (default_peek, default_focus_peek)
+}
