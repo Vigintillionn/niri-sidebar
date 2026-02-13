@@ -2,6 +2,7 @@ pub mod commands;
 pub mod config;
 pub mod niri;
 pub mod state;
+pub mod window_rules;
 
 use std::path::PathBuf;
 
