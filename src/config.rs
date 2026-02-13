@@ -77,8 +77,8 @@ pub struct WindowRule {
     pub app_id: Option<Regex>,
     #[serde(default, with = "serde_regex")]
     pub title: Option<Regex>,
-    pub width: i32,
-    pub height: i32,
+    pub width: Option<i32>,
+    pub height: Option<i32>,
 }
 
 impl Default for Config {

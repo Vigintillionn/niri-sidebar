@@ -32,10 +32,12 @@ fn add_to_sidebar<C: NiriClient>(ctx: &mut Ctx<C>, window: &Window) -> Result<()
         });
     }
 
-    let (target_width, target_height) = match resolve_window_size(&ctx.config.window_rule, window) {
-        Some((w, h)) => (w, h),
-        None => (ctx.config.geometry.width, ctx.config.geometry.height),
-    };
+    let (target_width, target_height) = resolve_window_size(
+        &ctx.config.window_rule,
+        window,
+        ctx.config.geometry.width,
+        ctx.config.geometry.height,
+    );
 
     let _ = ctx.socket.send_action(Action::SetWindowWidth {
         change: SizeChange::SetFixed(target_width),
@@ -50,7 +52,12 @@ fn add_to_sidebar<C: NiriClient>(ctx: &mut Ctx<C>, window: &Window) -> Result<()
     Ok(())
 }
 
-fn resolve_window_size(rules: &Vec<WindowRule>, window: &Window) -> Option<(i32, i32)> {
+fn resolve_window_size(
+    rules: &[WindowRule],
+    window: &Window,
+    default_w: i32,
+    default_h: i32,
+) -> (i32, i32) {
     for rule in rules {
         let app_ok = match (&rule.app_id, &window.app_id) {
             (None, _) => true,
@@ -65,10 +72,13 @@ fn resolve_window_size(rules: &Vec<WindowRule>, window: &Window) -> Option<(i32,
         };
 
         if title_ok && app_ok {
-            return Some((rule.width, rule.height));
+            return (
+                rule.width.unwrap_or(default_w),
+                rule.height.unwrap_or(default_h),
+            );
         }
     }
-    None
+    (default_w, default_h)
 }
 
 fn remove_from_sidebar<C: NiriClient>(ctx: &mut Ctx<C>, window: &Window) -> Result<()> {
