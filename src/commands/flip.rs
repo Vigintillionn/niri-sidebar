@@ -14,7 +14,7 @@ pub fn toggle_flip<C: NiriClient>(ctx: &mut Ctx<C>) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::state::AppState;
+    use crate::state::{AppState, WindowState};
     use crate::test_utils::{MockNiri, mock_config, mock_window};
     use niri_ipc::{Action, PositionChange};
     use tempfile::tempdir;
@@ -23,13 +23,27 @@ mod tests {
     fn test_toggle_flip() {
         let temp_dir = tempdir().unwrap();
 
-        let w1 = mock_window(1, false, true, 1);
-        let w2 = mock_window(2, true, true, 1);
+        let w1 = mock_window(1, false, false, 1, None);
+        let w2 = mock_window(2, true, true, 1, Some((1.0, 2.0)));
         let mock = MockNiri::new(vec![w1, w2]);
 
         let mut state = AppState::default();
-        state.windows.push((1, 300, 500)); // Index 0
-        state.windows.push((2, 300, 500)); // Index 1
+        let w1 = WindowState {
+            id: 1,
+            width: 300,
+            height: 500,
+            is_floating: false,
+            position: None,
+        };
+        let w2 = WindowState {
+            id: 2,
+            width: 300,
+            height: 500,
+            is_floating: true,
+            position: Some((1.0, 2.0)),
+        };
+        state.windows.push(w1);
+        state.windows.push(w2);
         state.is_flipped = false;
 
         let mut ctx = Ctx {
