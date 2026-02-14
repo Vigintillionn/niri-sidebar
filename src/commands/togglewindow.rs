@@ -5,8 +5,7 @@ use crate::{Ctx, state::WindowState};
 use anyhow::{Context, Result};
 use niri_ipc::{Action, SizeChange, Window};
 
-// TODO: restore window pos if floating
-// TODO: adjust tests to check new fields
+// TODO: adjust tests to check new fields/behavior
 
 pub fn toggle_window<C: NiriClient>(ctx: &mut Ctx<C>) -> Result<()> {
     let windows = ctx.socket.get_windows()?;
@@ -85,7 +84,9 @@ fn remove_from_sidebar<C: NiriClient>(ctx: &mut Ctx<C>, window: &Window) -> Resu
         });
     }
 
-    if let Some((x, y)) = w_state.position {
+    if let Some((x, y)) = w_state.position
+        && ctx.config.interaction.restore_position
+    {
         let _ = ctx.socket.send_action(Action::MoveFloatingWindow {
             id: Some(window.id),
             x: niri_ipc::PositionChange::SetFixed(x),

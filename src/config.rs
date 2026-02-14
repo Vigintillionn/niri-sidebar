@@ -29,6 +29,12 @@ pub struct Margins {
 pub struct Interaction {
     pub peek: i32,
     pub focus_peek: i32,
+    #[serde(default = "default_true")]
+    pub restore_position: bool,
+}
+
+fn default_true() -> bool {
+    true
 }
 
 impl Default for Config {
