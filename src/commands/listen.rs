@@ -54,12 +54,7 @@ fn handle_focus_change() -> Result<()> {
 }
 
 pub fn process_close<C: NiriClient>(ctx: &mut Ctx<C>, closed_id: u64) -> Result<()> {
-    if let Some(index) = ctx
-        .state
-        .windows
-        .iter()
-        .position(|(id, _, _)| *id == closed_id)
-    {
+    if let Some(index) = ctx.state.windows.iter().position(|w| w.id == closed_id) {
         println!("Sidebar window {} closed. Reordering...", closed_id);
 
         ctx.state.windows.remove(index);
@@ -81,7 +76,7 @@ pub fn process_focus<C: NiriClient>(ctx: &mut Ctx<C>) -> Result<()> {
 mod tests {
     use super::*;
     use crate::config::Config;
-    use crate::state::AppState;
+    use crate::state::{AppState, WindowState};
     use crate::test_utils::{MockNiri, mock_window};
     use tempfile::tempdir;
 
@@ -93,11 +88,25 @@ mod tests {
         }
 
         let mut state = AppState::default();
-        state.windows.push((100, 500, 500));
-        state.windows.push((200, 500, 500));
+        let w1 = WindowState {
+            id: 100,
+            width: 500,
+            height: 500,
+            is_floating: false,
+            position: None,
+        };
+        let w2 = WindowState {
+            id: 200,
+            width: 500,
+            height: 500,
+            is_floating: true,
+            position: Some((1.0, 2.0)),
+        };
+        state.windows.push(w1);
+        state.windows.push(w2);
 
-        let w100 = mock_window(100, true, true, 1);
-        let w200 = mock_window(200, true, true, 1);
+        let w100 = mock_window(100, true, true, 1, Some((1.0, 2.0)));
+        let w200 = mock_window(200, false, true, 1, Some((1.0, 2.0)));
         let mock = MockNiri::new(vec![w100, w200]);
 
         let mut ctx = Ctx {
@@ -110,9 +119,9 @@ mod tests {
         process_close(&mut ctx, 100).expect("Process close failed");
 
         // 100 removed
-        assert!(!ctx.state.windows.iter().any(|(id, _, _)| *id == 100));
+        assert!(!ctx.state.windows.iter().any(|w| w.id == 100));
         assert_eq!(ctx.state.windows.len(), 1);
-        assert_eq!(ctx.state.windows[0].0, 200);
+        assert_eq!(ctx.state.windows[0].id, 200);
         // Reorder should have run (sending actions)
         assert!(!ctx.socket.sent_actions.is_empty());
     }
@@ -125,7 +134,14 @@ mod tests {
         }
 
         let mut state = AppState::default();
-        state.windows.push((100, 500, 500));
+        let w1 = WindowState {
+            id: 100,
+            width: 500,
+            height: 500,
+            is_floating: false,
+            position: None,
+        };
+        state.windows.push(w1);
 
         let mock = MockNiri::new(vec![]);
 
@@ -140,7 +156,7 @@ mod tests {
 
         // State should still have Window 100
         assert_eq!(ctx.state.windows.len(), 1);
-        assert_eq!(ctx.state.windows[0].0, 100);
+        assert_eq!(ctx.state.windows[0].id, 100);
 
         // No reorder actions should have been sent
         assert!(ctx.socket.sent_actions.is_empty());

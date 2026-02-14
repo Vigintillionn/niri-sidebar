@@ -12,12 +12,7 @@ pub fn close<C: NiriClient>(ctx: &mut Ctx<C>) -> Result<()> {
         .find(|w| w.is_focused)
         .context("No window focused")?;
 
-    if let Some(index) = ctx
-        .state
-        .windows
-        .iter()
-        .position(|(id, _, _)| *id == focused.id)
-    {
+    if let Some(index) = ctx.state.windows.iter().position(|w| w.id == focused.id) {
         ctx.state.windows.remove(index);
         save_state(&ctx.state, &ctx.cache_dir)?;
     }
@@ -33,7 +28,7 @@ pub fn close<C: NiriClient>(ctx: &mut Ctx<C>) -> Result<()> {
 #[cfg(test)]
 mod tests_close {
     use super::*;
-    use crate::state::AppState;
+    use crate::state::{AppState, WindowState};
     use crate::test_utils::{MockNiri, mock_config, mock_window};
     use niri_ipc::Action;
     use tempfile::tempdir;
@@ -41,11 +36,18 @@ mod tests_close {
     #[test]
     fn test_close_sidebar_window() {
         let temp_dir = tempdir().unwrap();
-        let win = mock_window(10, true, true, 1);
+        let win = mock_window(10, true, true, 1, Some((1.0, 2.0)));
         let mock = MockNiri::new(vec![win]);
 
         let mut state = AppState::default();
-        state.windows.push((10, 100, 100));
+        let w1 = WindowState {
+            id: 10,
+            width: 100,
+            height: 100,
+            is_floating: false,
+            position: None,
+        };
+        state.windows.push(w1);
 
         let mut ctx = Ctx {
             state,
@@ -73,12 +75,19 @@ mod tests_close {
     fn test_close_untracked_window() {
         let temp_dir = tempdir().unwrap();
         // Focused window (ID 99) is NOT in the sidebar
-        let w1 = mock_window(99, true, false, 1);
-        let w2 = mock_window(10, false, true, 1);
+        let w1 = mock_window(99, true, false, 1, None);
+        let w2 = mock_window(10, false, true, 1, Some((1.0, 2.0)));
         let mock = MockNiri::new(vec![w1, w2]);
 
         let mut state = AppState::default();
-        state.windows.push((10, 100, 100));
+        let w1 = WindowState {
+            id: 10,
+            width: 100,
+            height: 100,
+            is_floating: false,
+            position: None,
+        };
+        state.windows.push(w1);
 
         let mut ctx = Ctx {
             state,
@@ -90,7 +99,7 @@ mod tests_close {
         close(&mut ctx).expect("Close failed");
 
         assert_eq!(ctx.state.windows.len(), 1);
-        assert_eq!(ctx.state.windows[0].0, 10);
+        assert_eq!(ctx.state.windows[0].id, 10);
 
         // CloseWindow action still sent
         assert!(
