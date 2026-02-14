@@ -86,9 +86,17 @@ fn remove_from_sidebar<C: NiriClient>(ctx: &mut Ctx<C>, window: &Window) -> Resu
         id: Some(window.id),
     });
 
-    if window.is_floating {
+    if window.is_floating && !w_state.is_floating {
         let _ = ctx.socket.send_action(Action::ToggleWindowFloating {
             id: Some(window.id),
+        });
+    }
+
+    if let Some((x, y)) = w_state.position {
+        let _ = ctx.socket.send_action(Action::MoveFloatingWindow {
+            id: Some(window.id),
+            x: niri_ipc::PositionChange::SetFixed(x),
+            y: niri_ipc::PositionChange::SetFixed(y),
         });
     }
 
