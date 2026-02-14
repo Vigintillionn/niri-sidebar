@@ -76,7 +76,7 @@ pub fn reorder<C: NiriClient>(ctx: &mut Ctx<C>) -> Result<()> {
     let current_ws = ctx.socket.get_active_workspace()?.id;
     let all_windows = ctx.socket.get_windows()?;
 
-    let sidebar_ids: Vec<u64> = ctx.state.windows.iter().map(|(id, _, _)| *id).collect();
+    let sidebar_ids: Vec<u64> = ctx.state.windows.iter().map(|w| w.id).collect();
     let mut sidebar_windows: Vec<_> = all_windows
         .iter()
         .filter(|w| {
@@ -86,9 +86,8 @@ pub fn reorder<C: NiriClient>(ctx: &mut Ctx<C>) -> Result<()> {
 
     let initial_len = ctx.state.windows.len();
     let active_ids: HashSet<u64> = all_windows.iter().map(|w| w.id).collect();
-    ctx.state
-        .windows
-        .retain(|(id, _, _)| active_ids.contains(id));
+
+    ctx.state.windows.retain(|w| active_ids.contains(&w.id));
     if ctx.state.windows.len() != initial_len {
         save_state(&ctx.state, &ctx.cache_dir)?;
     }
@@ -154,7 +153,7 @@ pub fn reorder<C: NiriClient>(ctx: &mut Ctx<C>) -> Result<()> {
 mod tests {
     use super::*;
     use crate::config::WindowRule;
-    use crate::state::AppState;
+    use crate::state::{AppState, WindowState};
     use crate::test_utils::{MockNiri, mock_config, mock_window};
     use niri_ipc::{Action, PositionChange};
     use regex::Regex;
@@ -164,14 +163,28 @@ mod tests {
     fn test_standard_stacking_order() {
         let temp_dir = tempdir().unwrap();
         // Scenario: Two windows, visible. Check Y-axis stacking.
-        let w1 = mock_window(1, false, true, 1);
-        let w2 = mock_window(2, true, true, 1);
+        let w1 = mock_window(1, false, true, 1, Some((1.0, 2.0)));
+        let w2 = mock_window(2, true, true, 1, Some((1.0, 2.0)));
         let mock = MockNiri::new(vec![w1, w2]);
 
         let mut state = AppState::default();
         // 1 is bottom, 2 is top
-        state.windows.push((1, 300, 200));
-        state.windows.push((2, 300, 200));
+        let w1 = WindowState {
+            id: 1,
+            width: 300,
+            height: 200,
+            is_floating: false,
+            position: None,
+        };
+        let w2 = WindowState {
+            id: 2,
+            width: 300,
+            height: 200,
+            is_floating: true,
+            position: Some((1.0, 2.0)),
+        };
+        state.windows.push(w1);
+        state.windows.push(w2);
 
         let mut ctx = Ctx {
             state,
@@ -214,16 +227,30 @@ mod tests {
     fn test_hidden_mode_with_focus_peek() {
         let temp_dir = tempdir().unwrap();
         // Scenario: Hidden mode. Focused window should stick out more.
-        let w_focused = mock_window(1, true, true, 1);
-        let w_bg = mock_window(2, false, true, 1);
+        let w_focused = mock_window(1, true, true, 1, Some((1.0, 2.0)));
+        let w_bg = mock_window(2, false, true, 1, Some((1.0, 2.0)));
         let mock = MockNiri::new(vec![w_focused, w_bg]);
 
         let mut state = AppState {
             is_hidden: true,
             ..Default::default()
         };
-        state.windows.push((1, 300, 200));
-        state.windows.push((2, 300, 200));
+        let w1 = WindowState {
+            id: 1,
+            width: 300,
+            height: 200,
+            is_floating: false,
+            position: None,
+        };
+        let w2 = WindowState {
+            id: 2,
+            width: 300,
+            height: 200,
+            is_floating: true,
+            position: Some((1.0, 2.0)),
+        };
+        state.windows.push(w1);
+        state.windows.push(w2);
 
         let mut ctx = Ctx {
             state,
@@ -258,14 +285,35 @@ mod tests {
         // - Window 2: On workspace 99 (Should be ignored)
         // - Window 3: In State, but does not exist in Niri
 
-        let w1 = mock_window(1, false, true, 1);
-        let w2 = mock_window(2, false, true, 99);
+        let w1 = mock_window(1, false, true, 1, Some((1.0, 2.0)));
+        let w2 = mock_window(2, false, true, 99, Some((1.0, 2.0)));
         let mock = MockNiri::new(vec![w1, w2]);
 
         let mut state = AppState::default();
-        state.windows.push((1, 100, 100));
-        state.windows.push((2, 100, 100));
-        state.windows.push((3, 100, 100));
+        let w1 = WindowState {
+            id: 1,
+            width: 100,
+            height: 100,
+            is_floating: false,
+            position: None,
+        };
+        let w2 = WindowState {
+            id: 2,
+            width: 100,
+            height: 100,
+            is_floating: true,
+            position: Some((1.0, 2.0)),
+        };
+        let w3 = WindowState {
+            id: 3,
+            width: 100,
+            height: 100,
+            is_floating: true,
+            position: Some((1.0, 2.0)),
+        };
+        state.windows.push(w1);
+        state.windows.push(w2);
+        state.windows.push(w3);
 
         let mut ctx = Ctx {
             state,
@@ -281,7 +329,7 @@ mod tests {
         // 2. Window 2 should NOT be moved
         // 3. Window 1 SHOULD be moved
 
-        let ids: Vec<u64> = ctx.state.windows.iter().map(|(id, _, _)| *id).collect();
+        let ids: Vec<u64> = ctx.state.windows.iter().map(|w| w.id).collect();
         assert!(ids.contains(&1));
         assert!(ids.contains(&2));
         assert!(
@@ -316,16 +364,30 @@ mod tests {
     fn test_flipped_order() {
         let temp_dir = tempdir().unwrap();
         // Scenario: Flipped mode reverses the visual stack
-        let w1 = mock_window(1, false, true, 1);
-        let w2 = mock_window(2, false, true, 1);
+        let w1 = mock_window(1, false, true, 1, Some((1.0, 2.0)));
+        let w2 = mock_window(2, false, true, 1, Some((1.0, 2.0)));
         let mock = MockNiri::new(vec![w1, w2]);
 
         let mut state = AppState {
             is_flipped: true,
             ..Default::default()
         };
-        state.windows.push((1, 300, 200));
-        state.windows.push((2, 300, 200));
+        let w1 = WindowState {
+            id: 1,
+            width: 300,
+            height: 200,
+            is_floating: false,
+            position: None,
+        };
+        let w2 = WindowState {
+            id: 2,
+            width: 300,
+            height: 200,
+            is_floating: true,
+            position: Some((1.0, 2.0)),
+        };
+        state.windows.push(w1);
+        state.windows.push(w2);
 
         let mut ctx = Ctx {
             state,
@@ -360,7 +422,7 @@ mod tests {
         // Scenario: Left side, Hidden.
         // Window Width: 300. Peek: 10.
         // Expected X = -300 + 10 = -290.
-        let w1 = mock_window(1, false, true, 1);
+        let w1 = mock_window(1, false, true, 1, Some((1.0, 2.0)));
         let mock = MockNiri::new(vec![w1]);
 
         let mut config = mock_config();
@@ -373,7 +435,15 @@ mod tests {
             is_hidden: true,
             ..Default::default()
         };
-        state.windows.push((1, 300, 200));
+
+        let w1 = WindowState {
+            id: 1,
+            width: 300,
+            height: 200,
+            is_floating: false,
+            position: None,
+        };
+        state.windows.push(w1);
 
         let mut ctx = Ctx {
             state,
@@ -399,8 +469,8 @@ mod tests {
         let temp_dir = tempdir().unwrap();
         // Scenario: Bottom bar.
         // Windows should stack Left-to-Right (X axis changes, Y is fixed).
-        let w1 = mock_window(1, false, true, 1);
-        let w2 = mock_window(2, false, true, 1);
+        let w1 = mock_window(1, false, true, 1, Some((1.0, 2.0)));
+        let w2 = mock_window(2, false, true, 1, Some((1.0, 2.0)));
         let mock = MockNiri::new(vec![w1, w2]);
 
         let mut config = mock_config();
@@ -410,8 +480,23 @@ mod tests {
         config.margins.left = 20;
 
         let mut state = AppState::default();
-        state.windows.push((1, 100, 100));
-        state.windows.push((2, 100, 100));
+
+        let w1 = WindowState {
+            id: 1,
+            width: 300,
+            height: 200,
+            is_floating: false,
+            position: None,
+        };
+        let w2 = WindowState {
+            id: 2,
+            width: 300,
+            height: 200,
+            is_floating: false,
+            position: None,
+        };
+        state.windows.push(w1);
+        state.windows.push(w2);
 
         let mut ctx = Ctx {
             state,
@@ -443,8 +528,8 @@ mod tests {
         // Scenario: Two windows. One with a rule, one default.
         // Window 1: Default (Width 300, Peek 10)
         // Window 2: Rule (Width 500, Peek 100)
-        let w1 = mock_window(1, false, true, 1);
-        let mut w2 = mock_window(2, false, true, 1);
+        let w1 = mock_window(1, false, true, 1, Some((1.0, 2.0)));
+        let mut w2 = mock_window(2, false, true, 1, Some((1.0, 2.0)));
         w2.app_id = Some("special".into());
 
         let mock = MockNiri::new(vec![w1, w2]);
@@ -462,9 +547,24 @@ mod tests {
         }];
 
         let mut state = AppState::default();
+
         // 1 is bottom, 2 is top
-        state.windows.push((1, 300, 200));
-        state.windows.push((2, 300, 200));
+        let w1 = WindowState {
+            id: 1,
+            width: 300,
+            height: 200,
+            is_floating: false,
+            position: None,
+        };
+        let w2 = WindowState {
+            id: 2,
+            width: 300,
+            height: 200,
+            is_floating: false,
+            position: None,
+        };
+        state.windows.push(w1);
+        state.windows.push(w2);
 
         state.is_hidden = true;
 
@@ -510,8 +610,8 @@ mod tests {
         // Scenario: Left side, Hidden.
         // Window 1: Default (Width 300, Peek 10)
         // Window 2: Special (Width 400, Peek 50)
-        let w1 = mock_window(1, false, true, 1);
-        let mut w2 = mock_window(2, false, true, 1);
+        let w1 = mock_window(1, false, true, 1, Some((1.0, 2.0)));
+        let mut w2 = mock_window(2, false, true, 1, Some((1.0, 2.0)));
         w2.app_id = Some("special".into());
 
         let mock = MockNiri::new(vec![w1, w2]);
@@ -530,8 +630,24 @@ mod tests {
         }];
 
         let mut state = AppState::default();
-        state.windows.push((1, 300, 200));
-        state.windows.push((2, 300, 200));
+
+        let w1 = WindowState {
+            id: 1,
+            width: 300,
+            height: 200,
+            is_floating: false,
+            position: None,
+        };
+        let w2 = WindowState {
+            id: 2,
+            width: 300,
+            height: 200,
+            is_floating: false,
+            position: None,
+        };
+        state.windows.push(w1);
+        state.windows.push(w2);
+
         state.is_hidden = true;
 
         let mut ctx = Ctx {
@@ -572,8 +688,8 @@ mod tests {
         // Scenario: Bottom side, Visible.
         // Window 1: Special (Width 200)
         // Window 2: Default (Width 100)
-        let mut w1 = mock_window(2, false, true, 1);
-        let w2 = mock_window(1, false, true, 1);
+        let mut w1 = mock_window(2, false, true, 1, Some((1.0, 2.0)));
+        let w2 = mock_window(1, false, true, 1, Some((1.0, 2.0)));
         w1.app_id = Some("wide".into());
 
         let mock = MockNiri::new(vec![w1, w2]);
@@ -591,8 +707,23 @@ mod tests {
         }];
 
         let mut state = AppState::default();
-        state.windows.push((1, 100, 100)); // Will be processed first
-        state.windows.push((2, 100, 100)); // Will be processed second
+
+        let w1 = WindowState {
+            id: 1,
+            width: 300,
+            height: 200,
+            is_floating: false,
+            position: None,
+        };
+        let w2 = WindowState {
+            id: 2,
+            width: 300,
+            height: 200,
+            is_floating: false,
+            position: None,
+        };
+        state.windows.push(w1); // Will be processed first
+        state.windows.push(w2); // Will be processed second
 
         let mut ctx = Ctx {
             state,
@@ -633,10 +764,10 @@ mod tests {
         // Window 1: Default (Height 200)
         // Window 2: Special (Height 400)
         // Window 3: Default (Height 200)
-        let w1 = mock_window(1, false, true, 1);
-        let mut w2 = mock_window(2, false, true, 1);
+        let w1 = mock_window(1, false, true, 1, Some((1.0, 2.0)));
+        let mut w2 = mock_window(2, false, true, 1, Some((1.0, 2.0)));
         w2.app_id = Some("tall".into());
-        let w3 = mock_window(3, false, true, 1);
+        let w3 = mock_window(3, false, true, 1, Some((1.0, 2.0)));
         let mock = MockNiri::new(vec![w1, w2, w3]);
         let mut config = mock_config();
         config.interaction.position = SidebarPosition::Right;
@@ -650,9 +781,30 @@ mod tests {
             ..Default::default()
         }];
         let mut state = AppState::default();
-        state.windows.push((1, 300, 200));
-        state.windows.push((2, 300, 200));
-        state.windows.push((3, 300, 200));
+        let w1 = WindowState {
+            id: 1,
+            width: 300,
+            height: 200,
+            is_floating: false,
+            position: None,
+        };
+        let w2 = WindowState {
+            id: 2,
+            width: 300,
+            height: 200,
+            is_floating: false,
+            position: None,
+        };
+        let w3 = WindowState {
+            id: 3,
+            width: 300,
+            height: 200,
+            is_floating: false,
+            position: None,
+        };
+        state.windows.push(w1);
+        state.windows.push(w2);
+        state.windows.push(w3);
         let mut ctx = Ctx {
             state,
             config,
