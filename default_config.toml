@@ -9,13 +9,19 @@ height = 335
 gap = 10
 
 [margins]
-# Space from the top/bottom of the screen
+# Margins are default to 0 if left out
+# Space from the top of the screen
 top = 50
 # Space from the right edge of the screen
 right = 10
+# Space from the left edge of the screen
+left = 10
+# Space from the bottom of the screen
+bottom = 10 
 
 [interaction]
 # Where to put the sidebar, can be "left", "right", "top" or "bottom"
+# Defaults to "right"
 position = "right"
 # Width of windows when sidebar is hidden in pixels
 peek = 10
