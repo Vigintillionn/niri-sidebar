@@ -1,13 +1,14 @@
 use crate::commands::movefrom::move_to;
-use crate::commands::reorder;
+use crate::commands::{reorder, toggle_window};
 use crate::config::load_config;
 use crate::niri::connect;
 use crate::state::{get_default_cache_dir, load_state, save_state};
+use crate::window_rules::resolve_auto_add;
 use crate::{Ctx, NiriClient};
 use anyhow::Result;
 use fslock::LockFile;
 use niri_ipc::socket::Socket;
-use niri_ipc::{Event, Request};
+use niri_ipc::{Event, Request, Window};
 
 pub fn listen(mut ctx: Ctx<Socket>) -> Result<()> {
     let _ = ctx.socket.send(Request::EventStream)?;
@@ -19,6 +20,7 @@ pub fn listen(mut ctx: Ctx<Socket>) -> Result<()> {
             Event::WindowClosed { id } => handle_close_event(id)?,
             Event::WindowFocusChanged { .. } => handle_focus_change()?,
             Event::WorkspaceActivated { id, focused: true } => handle_workspace_focus(id)?,
+            Event::WindowOpenedOrChanged { window } => handle_new_window(window)?,
             _ => {}
         }
     }
@@ -64,6 +66,11 @@ fn handle_workspace_focus(ws_id: u64) -> Result<()> {
     }
 }
 
+fn handle_new_window(window: Window) -> Result<()> {
+    let (mut ctx, _lock) = get_ctx()?;
+    process_new_window(&mut ctx, window)
+}
+
 pub fn process_close<C: NiriClient>(ctx: &mut Ctx<C>, closed_id: u64) -> Result<()> {
     if let Some(index) = ctx
         .state
@@ -95,7 +102,13 @@ pub fn process_move<C: NiriClient>(ctx: &mut Ctx<C>, ws_id: u64) -> Result<()> {
         .filter(|w| ctx.state.windows.iter().any(|&(id, _, _)| id == w.id))
         .collect();
     move_to(ctx, sidebar_windows, ws_id)?;
+    Ok(())
+}
 
+pub fn process_new_window<C: NiriClient>(ctx: &mut Ctx<C>, window: Window) -> Result<()> {
+    if resolve_auto_add(&ctx.config.window_rule, &window) {
+        toggle_window(ctx)?;
+    }
     Ok(())
 }
 

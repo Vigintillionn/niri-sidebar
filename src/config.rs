@@ -81,6 +81,8 @@ pub struct WindowRule {
     pub height: Option<i32>,
     pub peek: Option<i32>,
     pub focus_peek: Option<i32>,
+    #[serde(default)]
+    pub auto_add: bool,
 }
 
 impl Default for Config {

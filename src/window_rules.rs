@@ -56,3 +56,12 @@ pub fn resolve_rule_focus_peek(
     }
     default_focus_peek
 }
+
+pub fn resolve_auto_add(rules: &[WindowRule], window: &Window) -> bool {
+    for rule in rules {
+        if matches_window(&window.app_id, &window.title, rule) {
+            return rule.auto_add;
+        }
+    }
+    false
+}
