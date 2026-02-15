@@ -23,7 +23,9 @@ pub fn toggle_window<C: NiriClient>(ctx: &mut Ctx<C>) -> Result<()> {
     Ok(())
 }
 
-fn add_to_sidebar<C: NiriClient>(ctx: &mut Ctx<C>, window: &Window) -> Result<()> {
+// NOTE: wasn't pub previously, changed it for now so that listen can use this directly and pass
+// Window instead of relying on toggle_window
+pub fn add_to_sidebar<C: NiriClient>(ctx: &mut Ctx<C>, window: &Window) -> Result<()> {
     let (width, height) = window.layout.window_size;
     ctx.state.windows.push((window.id, width, height));
 
