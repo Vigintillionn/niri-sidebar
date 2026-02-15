@@ -1,9 +1,77 @@
-use crate::Ctx;
+use crate::config::SidebarPosition;
 use crate::niri::NiriClient;
 use crate::state::save_state;
+use crate::{Ctx, WindowTarget};
 use anyhow::Result;
-use niri_ipc::{Action, PositionChange};
+use niri_ipc::{Action, PositionChange, Window};
 use std::collections::HashSet;
+
+fn resolve_dimensions<C: NiriClient>(window: &Window, ctx: &Ctx<C>) -> WindowTarget {
+    WindowTarget {
+        width: ctx.config.geometry.width,
+        height: ctx.config.geometry.height,
+    }
+}
+
+fn calculate_coordinates<C: NiriClient>(
+    pos: SidebarPosition,
+    dims: WindowTarget,
+    screen: (i32, i32),
+    stack_offset: i32,
+    is_focused: bool,
+    ctx: &Ctx<C>,
+) -> (i32, i32) {
+    let state = &ctx.state;
+    let margins = &ctx.config.margins;
+    let interaction = &ctx.config.interaction;
+    let (sw, sh) = screen;
+    let (w, h) = (dims.width, dims.height);
+
+    let active_peek = if is_focused {
+        interaction.focus_peek
+    } else {
+        interaction.peek
+    };
+
+    match pos {
+        SidebarPosition::Right => {
+            let visible_x = sw - w - margins.right;
+            let hidden_x = sw - active_peek;
+            let x = if state.is_hidden { hidden_x } else { visible_x };
+
+            let start_y = sh - h - margins.top;
+            let y = start_y - stack_offset;
+            (x, y)
+        }
+        SidebarPosition::Left => {
+            let visible_x = margins.left;
+            let hidden_x = -w + active_peek;
+            let x = if state.is_hidden { hidden_x } else { visible_x };
+
+            let start_y = sh - h - margins.top;
+            let y = start_y - stack_offset;
+            (x, y)
+        }
+        SidebarPosition::Bottom => {
+            let start_x = margins.left;
+            let x = start_x + stack_offset;
+
+            let visible_y = sh - h - margins.bottom;
+            let hidden_y = sh - active_peek;
+            let y = if state.is_hidden { hidden_y } else { visible_y };
+            (x, y)
+        }
+        SidebarPosition::Top => {
+            let start_x = margins.left;
+            let x = start_x + stack_offset;
+
+            let visible_y = margins.top;
+            let hidden_y = -h + active_peek;
+            let y = if state.is_hidden { hidden_y } else { visible_y };
+            (x, y)
+        }
+    }
+}
 
 pub fn reorder<C: NiriClient>(ctx: &mut Ctx<C>) -> Result<()> {
     let (display_w, display_h) = ctx.socket.get_screen_dimensions()?;
@@ -19,7 +87,6 @@ pub fn reorder<C: NiriClient>(ctx: &mut Ctx<C>) -> Result<()> {
         .collect();
 
     let active_ids: HashSet<u64> = all_windows.iter().map(|w| w.id).collect();
-
     ctx.state
         .windows
         .retain(|(id, _, _)| active_ids.contains(id));
@@ -36,33 +103,31 @@ pub fn reorder<C: NiriClient>(ctx: &mut Ctx<C>) -> Result<()> {
         sidebar_windows.reverse();
     }
 
-    let sidebar_w = ctx.config.geometry.width;
-    let sidebar_h = ctx.config.geometry.height;
+    let position = ctx.config.interaction.position;
     let gap = ctx.config.geometry.gap;
-    let off_top = ctx.config.margins.top;
-    let off_right = ctx.config.margins.right;
-    let peek = ctx.config.interaction.peek;
-    let focus_peek = ctx.config.interaction.focus_peek;
 
-    let base_x = display_w - sidebar_w - off_right;
-    let hidden_x = display_w - peek;
-    let focus_hidden_x = display_w - focus_peek;
+    let mut current_stack_offset = 0;
 
-    let base_y = display_h - sidebar_h - off_top;
+    for window in sidebar_windows.iter() {
+        let dims = resolve_dimensions(window, ctx);
 
-    for (idx, window) in sidebar_windows.iter().enumerate() {
-        let target_x = if ctx.state.is_hidden {
-            if window.is_focused {
-                focus_hidden_x
-            } else {
-                hidden_x
+        let (target_x, target_y) = calculate_coordinates(
+            position,
+            dims,
+            (display_w, display_h),
+            current_stack_offset,
+            window.is_focused,
+            ctx,
+        );
+
+        match position {
+            SidebarPosition::Left | SidebarPosition::Right => {
+                current_stack_offset += dims.height + gap;
             }
-        } else {
-            base_x
-        };
-
-        let stack_offset = idx as i32 * (sidebar_h + gap);
-        let target_y = base_y - stack_offset;
+            SidebarPosition::Top | SidebarPosition::Bottom => {
+                current_stack_offset += dims.width + gap;
+            }
+        }
 
         let _ = ctx.socket.send_action(Action::MoveFloatingWindow {
             id: Some(window.id),
@@ -70,6 +135,7 @@ pub fn reorder<C: NiriClient>(ctx: &mut Ctx<C>) -> Result<()> {
             y: PositionChange::SetFixed(target_y.into()),
         });
     }
+
     Ok(())
 }
 

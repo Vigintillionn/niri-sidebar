@@ -26,3 +26,9 @@ pub enum Direction {
     Next,
     Prev,
 }
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct WindowTarget {
+    width: i32,
+    height: i32,
+}
