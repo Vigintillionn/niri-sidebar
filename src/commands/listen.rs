@@ -57,7 +57,11 @@ fn handle_focus_change() -> Result<()> {
 
 fn handle_workspace_focus(ws_id: u64) -> Result<()> {
     let (mut ctx, _lock) = get_ctx()?;
-    process_move(&mut ctx, ws_id)
+    if ctx.config.interaction.sticky {
+        process_move(&mut ctx, ws_id)
+    } else {
+        Ok(())
+    }
 }
 
 pub fn process_close<C: NiriClient>(ctx: &mut Ctx<C>, closed_id: u64) -> Result<()> {
