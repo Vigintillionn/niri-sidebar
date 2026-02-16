@@ -65,3 +65,133 @@ pub fn resolve_auto_add(rules: &[WindowRule], window: &Window) -> bool {
     }
     false
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::test_utils::mock_window;
+    use regex::Regex;
+
+    #[test]
+    fn test_resolve_window_size_defaults() {
+        let rules = vec![];
+        let window = mock_window(1, false, false, 1);
+        let (w, h) = resolve_window_size(&rules, &window, 100, 200);
+        assert_eq!(w, 100);
+        assert_eq!(h, 200);
+    }
+
+    #[test]
+    fn test_resolve_window_size_match_app_id() {
+        let rules = vec![WindowRule {
+            app_id: Some(Regex::new("test").unwrap()),
+            width: Some(500),
+            height: Some(600),
+            ..Default::default()
+        }];
+        let window = mock_window(1, false, false, 1); // mock_window has app_id "test"
+        let (w, h) = resolve_window_size(&rules, &window, 100, 200);
+        assert_eq!(w, 500);
+        assert_eq!(h, 600);
+    }
+
+    #[test]
+    fn test_resolve_window_size_match_title() {
+        let rules = vec![WindowRule {
+            title: Some(Regex::new("Test Window").unwrap()),
+            width: Some(800),
+            height: Some(900),
+            ..Default::default()
+        }];
+        let window = mock_window(1, false, false, 1); // mock_window has title "Test Window"
+        let (w, h) = resolve_window_size(&rules, &window, 100, 200);
+        assert_eq!(w, 800);
+        assert_eq!(h, 900);
+    }
+
+    #[test]
+    fn test_resolve_window_size_no_match() {
+        let rules = vec![WindowRule {
+            app_id: Some(Regex::new("nomatch").unwrap()),
+            width: Some(500),
+            height: Some(600),
+            ..Default::default()
+        }];
+        let window = mock_window(1, false, false, 1);
+        let (w, h) = resolve_window_size(&rules, &window, 100, 200);
+        assert_eq!(w, 100);
+        assert_eq!(h, 200);
+    }
+
+    #[test]
+    fn test_resolve_rule_peek_match() {
+        let rules = vec![WindowRule {
+            app_id: Some(Regex::new("test").unwrap()),
+            peek: Some(50),
+            ..Default::default()
+        }];
+        let window = mock_window(1, false, false, 1);
+        let peek = resolve_rule_peek(&rules, &window, 10);
+        assert_eq!(peek, 50);
+    }
+
+    #[test]
+    fn test_resolve_rule_peek_default() {
+        let rules = vec![WindowRule {
+            app_id: Some(Regex::new("nomatch").unwrap()),
+            peek: Some(50),
+            ..Default::default()
+        }];
+        let window = mock_window(1, false, false, 1);
+        let peek = resolve_rule_peek(&rules, &window, 10);
+        assert_eq!(peek, 10);
+    }
+
+    #[test]
+    fn test_resolve_rule_focus_peek_match() {
+        let rules = vec![WindowRule {
+            app_id: Some(Regex::new("test").unwrap()),
+            focus_peek: Some(70),
+            ..Default::default()
+        }];
+        let window = mock_window(1, false, false, 1);
+        let peek = resolve_rule_focus_peek(&rules, &window, 20);
+        assert_eq!(peek, 70);
+    }
+
+    #[test]
+    fn test_resolve_rule_focus_peek_default() {
+        let rules = vec![WindowRule {
+            app_id: Some(Regex::new("nomatch").unwrap()),
+            focus_peek: Some(70),
+            ..Default::default()
+        }];
+        let window = mock_window(1, false, false, 1);
+        let peek = resolve_rule_focus_peek(&rules, &window, 20);
+        assert_eq!(peek, 20);
+    }
+
+    #[test]
+    fn test_resolve_auto_add_match() {
+        let rules = vec![WindowRule {
+            app_id: Some(Regex::new("test").unwrap()),
+            auto_add: true,
+            ..Default::default()
+        }];
+        let window = mock_window(1, false, false, 1);
+        let auto_add = resolve_auto_add(&rules, &window);
+        assert!(auto_add);
+    }
+
+    #[test]
+    fn test_resolve_auto_add_default_false() {
+        let rules = vec![WindowRule {
+            app_id: Some(Regex::new("nomatch").unwrap()),
+            auto_add: true,
+            ..Default::default()
+        }];
+        let window = mock_window(1, false, false, 1);
+        let auto_add = resolve_auto_add(&rules, &window);
+        assert!(!auto_add);
+    }
+}
