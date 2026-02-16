@@ -343,4 +343,87 @@ mod tests {
             if *y == 620.0
         )));
     }
+
+    #[test]
+    fn test_position_left_hidden() {
+        let temp_dir = tempdir().unwrap();
+        // Scenario: Left side, Hidden.
+        // Window Width: 300. Peek: 10.
+        // Expected X = -300 + 10 = -290.
+        let w1 = mock_window(1, false, true, 1);
+        let mock = MockNiri::new(vec![w1]);
+
+        let mut config = mock_config();
+        config.interaction.position = SidebarPosition::Left;
+        config.interaction.peek = 10;
+        config.geometry.width = 300;
+        config.margins.left = 0;
+
+        let mut state = AppState {
+            is_hidden: true,
+            ..Default::default()
+        };
+        state.windows.push((1, 300, 200));
+
+        let mut ctx = Ctx {
+            state,
+            config,
+            socket: mock,
+            cache_dir: temp_dir.path().to_path_buf(),
+        };
+
+        reorder(&mut ctx).expect("Reorder failed");
+
+        let actions = &ctx.socket.sent_actions;
+        assert!(actions.iter().any(|a| matches!(a,
+            Action::MoveFloatingWindow {
+                id: Some(1),
+                x: PositionChange::SetFixed(x),
+                ..
+            } if *x == -290.0 // Verify negative coordinate
+        )));
+    }
+
+    #[test]
+    fn test_position_bottom_stacking() {
+        let temp_dir = tempdir().unwrap();
+        // Scenario: Bottom bar.
+        // Windows should stack Left-to-Right (X axis changes, Y is fixed).
+        let w1 = mock_window(1, false, true, 1);
+        let w2 = mock_window(2, false, true, 1);
+        let mock = MockNiri::new(vec![w1, w2]);
+
+        let mut config = mock_config();
+        config.interaction.position = SidebarPosition::Bottom;
+        config.geometry.width = 100;
+        config.geometry.gap = 10;
+        config.margins.left = 20;
+
+        let mut state = AppState::default();
+        state.windows.push((1, 100, 100));
+        state.windows.push((2, 100, 100));
+
+        let mut ctx = Ctx {
+            state,
+            config,
+            socket: mock,
+            cache_dir: temp_dir.path().to_path_buf(),
+        };
+
+        reorder(&mut ctx).expect("Reorder failed");
+
+        let actions = &ctx.socket.sent_actions;
+
+        // Window 1 (First): X = Margin Left = 20
+        assert!(actions.iter().any(|a| matches!(a,
+            Action::MoveFloatingWindow { id: Some(1), x: PositionChange::SetFixed(x), .. }
+            if *x == 20.0
+        )));
+
+        // Window 2 (Second): X = Margin + Width + Gap = 20 + 100 + 10 = 130
+        assert!(actions.iter().any(|a| matches!(a,
+            Action::MoveFloatingWindow { id: Some(2), x: PositionChange::SetFixed(x), .. }
+            if *x == 130.0
+        )));
+    }
 }
