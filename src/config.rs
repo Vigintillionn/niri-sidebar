@@ -43,9 +43,15 @@ pub struct Margins {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Interaction {
     pub peek: i32,
-    pub focus_peek: i32,
+    pub focus_peek: Option<i32>,
     #[serde(default = "default_position")]
     pub position: SidebarPosition,
+}
+
+impl Interaction {
+    pub fn get_focus_peek(&self) -> i32 {
+        self.focus_peek.unwrap_or(self.peek)
+    }
 }
 
 fn default_position() -> SidebarPosition {

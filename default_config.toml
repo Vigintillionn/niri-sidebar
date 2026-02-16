@@ -28,4 +28,5 @@ peek = 10
 # Width of window when sidebar is hidden but window is focused in pixels
 # set this equal to peek to disable this feature
 # set this equal to sidebar_width + offset_right to make focused windows "unhide"
+# Optional and defaults to peek if ommitted
 focus_peek = 50

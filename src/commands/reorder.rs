@@ -28,7 +28,7 @@ fn calculate_coordinates<C: NiriClient>(
     let (w, h) = (dims.width, dims.height);
 
     let active_peek = if is_focused {
-        interaction.focus_peek
+        interaction.get_focus_peek()
     } else {
         interaction.peek
     };
