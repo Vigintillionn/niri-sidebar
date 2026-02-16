@@ -86,11 +86,14 @@ pub fn reorder<C: NiriClient>(ctx: &mut Ctx<C>) -> Result<()> {
         })
         .collect();
 
+    let initial_len = ctx.state.windows.len();
     let active_ids: HashSet<u64> = all_windows.iter().map(|w| w.id).collect();
     ctx.state
         .windows
         .retain(|(id, _, _)| active_ids.contains(id));
-    save_state(&ctx.state, &ctx.cache_dir)?;
+    if ctx.state.windows.len() != initial_len {
+        save_state(&ctx.state, &ctx.cache_dir)?;
+    }
 
     // Sort by ID for stable ordering
     sidebar_windows.sort_by_key(|w| {
