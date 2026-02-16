@@ -1,3 +1,4 @@
+use crate::commands::movefrom::move_to;
 use crate::commands::reorder;
 use crate::config::load_config;
 use crate::niri::connect;
@@ -17,6 +18,7 @@ pub fn listen(mut ctx: Ctx<Socket>) -> Result<()> {
         match event {
             Event::WindowClosed { id } => handle_close_event(id)?,
             Event::WindowFocusChanged { .. } => handle_focus_change()?,
+            Event::WorkspaceActivated { id, focused: true } => handle_workspace_focus(id)?,
             _ => {}
         }
     }
@@ -53,6 +55,15 @@ fn handle_focus_change() -> Result<()> {
     process_focus(&mut ctx)
 }
 
+fn handle_workspace_focus(ws_id: u64) -> Result<()> {
+    let (mut ctx, _lock) = get_ctx()?;
+    if ctx.config.interaction.sticky {
+        process_move(&mut ctx, ws_id)
+    } else {
+        Ok(())
+    }
+}
+
 pub fn process_close<C: NiriClient>(ctx: &mut Ctx<C>, closed_id: u64) -> Result<()> {
     if let Some(index) = ctx
         .state
@@ -77,12 +88,24 @@ pub fn process_focus<C: NiriClient>(ctx: &mut Ctx<C>) -> Result<()> {
     Ok(())
 }
 
+pub fn process_move<C: NiriClient>(ctx: &mut Ctx<C>, ws_id: u64) -> Result<()> {
+    let windows: Vec<_> = ctx.socket.get_windows()?;
+    let sidebar_windows = windows
+        .iter()
+        .filter(|w| ctx.state.windows.iter().any(|&(id, _, _)| id == w.id))
+        .collect();
+    move_to(ctx, sidebar_windows, ws_id)?;
+
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::config::Config;
     use crate::state::AppState;
     use crate::test_utils::{MockNiri, mock_window};
+    use niri_ipc::{Action, WorkspaceReferenceArg};
     use tempfile::tempdir;
 
     #[test]
@@ -144,5 +167,61 @@ mod tests {
 
         // No reorder actions should have been sent
         assert!(ctx.socket.sent_actions.is_empty());
+    }
+
+    #[test]
+    fn test_process_move_consolidates_tracked_windows_from_all_workspaces() {
+        let temp_dir = tempdir().unwrap();
+        unsafe {
+            std::env::set_var("NIRI_SIDEBAR_TEST_DIR", temp_dir.path());
+        }
+
+        let mut state = AppState::default();
+        state.windows.push((10, 100, 100));
+        state.windows.push((20, 100, 100));
+
+        // Window 10: Tracked, on WS 1
+        let w10 = mock_window(10, true, false, 1);
+        // Window 20: Tracked, on WS 2
+        let w20 = mock_window(20, true, false, 2);
+        // Window 30: Untracked, on WS 1
+        let w30 = mock_window(30, true, false, 1);
+
+        let mock = MockNiri::new(vec![w10, w20, w30]);
+
+        let mut ctx = Ctx {
+            state,
+            config: Config::default(),
+            socket: mock,
+            cache_dir: temp_dir.path().to_path_buf(),
+        };
+
+        let target_ws = 99;
+
+        process_move(&mut ctx, target_ws).expect("process_move failed");
+        let actions = &ctx.socket.sent_actions;
+
+        // Should have 2 actions (for ID 10 and 20)
+        assert_eq!(actions.len(), 2);
+
+        let check_action = |act: &Action, expected_id: u64| {
+            if let Action::MoveWindowToWorkspace {
+                window_id,
+                reference,
+                ..
+            } = act
+            {
+                assert_eq!(*window_id, Some(expected_id));
+                match reference {
+                    WorkspaceReferenceArg::Id(id) => assert_eq!(*id, target_ws),
+                    _ => panic!("Wrong target workspace"),
+                }
+            } else {
+                panic!("Wrong action type");
+            }
+        };
+
+        check_action(&actions[0], 10);
+        check_action(&actions[1], 20);
     }
 }

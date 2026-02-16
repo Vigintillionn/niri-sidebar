@@ -21,3 +21,5 @@ peek = 10
 # set this equal to peek to disable this feature
 # set this equal to sidebar_width + offset_right to make focused windows "unhide"
 focus_peek = 50
+# If the sidebar is sticky, moving to the active workspace with the user
+sticky = false

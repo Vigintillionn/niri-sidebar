@@ -29,6 +29,7 @@ pub struct Margins {
 pub struct Interaction {
     pub peek: i32,
     pub focus_peek: i32,
+    pub sticky: bool,
 }
 
 impl Default for Config {
