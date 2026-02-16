@@ -261,12 +261,8 @@ mod tests {
         let config = Config {
             window_rule: vec![WindowRule {
                 app_id: Some(Regex::new(r"test").unwrap()),
-                title: None,
-                width: None,
-                height: None,
-                peek: None,
-                focus_peek: None,
                 auto_add: true,
+                ..Default::default()
             }],
             ..Default::default()
         };
@@ -304,12 +300,8 @@ mod tests {
         let config = Config {
             window_rule: vec![WindowRule {
                 app_id: Some(Regex::new(r"test").unwrap()),
-                title: None,
-                width: None,
-                height: None,
-                peek: None,
-                focus_peek: None,
                 auto_add: false,
+                ..Default::default()
             }],
             ..Default::default()
         };

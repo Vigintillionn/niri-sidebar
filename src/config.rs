@@ -71,7 +71,7 @@ fn default_margin() -> i32 {
     0
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Default)]
 pub struct WindowRule {
     #[serde(default, with = "serde_regex")]
     pub app_id: Option<Regex>,
