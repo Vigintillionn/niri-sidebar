@@ -153,9 +153,11 @@ pub fn reorder<C: NiriClient>(ctx: &mut Ctx<C>) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::config::WindowRule;
     use crate::state::AppState;
     use crate::test_utils::{MockNiri, mock_config, mock_window};
     use niri_ipc::{Action, PositionChange};
+    use regex::Regex;
     use tempfile::tempdir;
 
     #[test]
@@ -432,6 +434,269 @@ mod tests {
         assert!(actions.iter().any(|a| matches!(a,
             Action::MoveFloatingWindow { id: Some(2), x: PositionChange::SetFixed(x), .. }
             if *x == 130.0
+        )));
+    }
+
+    #[test]
+    fn test_window_rules_override_behavior() {
+        let temp_dir = tempdir().unwrap();
+        // Scenario: Two windows. One with a rule, one default.
+        // Window 1: Default (Width 300, Peek 10)
+        // Window 2: Rule (Width 500, Peek 100)
+        let w1 = mock_window(1, false, true, 1);
+        let mut w2 = mock_window(2, false, true, 1);
+        w2.app_id = Some("special".into());
+
+        let mock = MockNiri::new(vec![w1, w2]);
+
+        let mut config = mock_config();
+        config.interaction.position = SidebarPosition::Right;
+        config.geometry.width = 300;
+        config.interaction.peek = 10;
+
+        config.window_rule = vec![WindowRule {
+            app_id: Some(Regex::new("special").unwrap()),
+            width: Some(500),
+            peek: Some(100),
+            ..Default::default()
+        }];
+
+        let mut state = AppState::default();
+        // 1 is bottom, 2 is top
+        state.windows.push((1, 300, 200));
+        state.windows.push((2, 300, 200));
+
+        state.is_hidden = true;
+
+        let mut ctx = Ctx {
+            state,
+            config,
+            socket: mock,
+            cache_dir: temp_dir.path().to_path_buf(),
+        };
+
+        reorder(&mut ctx).expect("Reorder failed");
+
+        let actions = &ctx.socket.sent_actions;
+
+        // Screen W: 1920
+
+        // Window 1 (Default):
+        // Width 300. Peek 10.
+        // Hidden X = ScreenW - Peek = 1920 - 10 = 1910
+        assert!(actions.iter().any(|a| matches!(a,
+            Action::MoveFloatingWindow {
+                id: Some(1),
+                x: PositionChange::SetFixed(x),
+                ..
+            } if *x == 1910.0
+        )));
+
+        // Window 2 (Special Rule):
+        // Width 500. Peek 100.
+        // Hidden X = ScreenW - Peek = 1920 - 100 = 1820
+        assert!(actions.iter().any(|a| matches!(a,
+            Action::MoveFloatingWindow {
+                id: Some(2),
+                x: PositionChange::SetFixed(x),
+                ..
+            } if *x == 1820.0
+        )));
+    }
+
+    #[test]
+    fn test_window_rules_left_hidden_mixed() {
+        let temp_dir = tempdir().unwrap();
+        // Scenario: Left side, Hidden.
+        // Window 1: Default (Width 300, Peek 10)
+        // Window 2: Special (Width 400, Peek 50)
+        let w1 = mock_window(1, false, true, 1);
+        let mut w2 = mock_window(2, false, true, 1);
+        w2.app_id = Some("special".into());
+
+        let mock = MockNiri::new(vec![w1, w2]);
+
+        let mut config = mock_config();
+        config.interaction.position = SidebarPosition::Left;
+        config.interaction.peek = 10;
+        config.geometry.width = 300;
+        config.margins.left = 0;
+
+        config.window_rule = vec![WindowRule {
+            app_id: Some(Regex::new("special").unwrap()),
+            width: Some(400),
+            peek: Some(50),
+            ..Default::default()
+        }];
+
+        let mut state = AppState::default();
+        state.windows.push((1, 300, 200));
+        state.windows.push((2, 300, 200));
+        state.is_hidden = true;
+
+        let mut ctx = Ctx {
+            state,
+            config,
+            socket: mock,
+            cache_dir: temp_dir.path().to_path_buf(),
+        };
+
+        reorder(&mut ctx).expect("Reorder failed");
+
+        let actions = &ctx.socket.sent_actions;
+
+        // Window 1 (Default):
+        // X = -Width + Peek = -300 + 10 = -290
+        assert!(actions.iter().any(|a| matches!(a,
+            Action::MoveFloatingWindow {
+                id: Some(1),
+                x: PositionChange::SetFixed(x),
+                ..
+            } if *x == -290.0
+        )));
+
+        // Window 2 (Special):
+        // X = -Width + Peek = -400 + 50 = -350
+        assert!(actions.iter().any(|a| matches!(a,
+            Action::MoveFloatingWindow {
+                id: Some(2),
+                x: PositionChange::SetFixed(x),
+                ..
+            } if *x == -350.0
+        )));
+    }
+
+    #[test]
+    fn test_window_rules_bottom_visible_mixed() {
+        let temp_dir = tempdir().unwrap();
+        // Scenario: Bottom side, Visible.
+        // Window 1: Special (Width 200)
+        // Window 2: Default (Width 100)
+        let mut w1 = mock_window(2, false, true, 1);
+        let w2 = mock_window(1, false, true, 1);
+        w1.app_id = Some("wide".into());
+
+        let mock = MockNiri::new(vec![w1, w2]);
+
+        let mut config = mock_config();
+        config.interaction.position = SidebarPosition::Bottom;
+        config.geometry.width = 100;
+        config.geometry.gap = 10;
+        config.margins.left = 0;
+
+        config.window_rule = vec![WindowRule {
+            app_id: Some(Regex::new("wide").unwrap()),
+            width: Some(200),
+            ..Default::default()
+        }];
+
+        let mut state = AppState::default();
+        state.windows.push((1, 100, 100)); // Will be processed first
+        state.windows.push((2, 100, 100)); // Will be processed second
+
+        let mut ctx = Ctx {
+            state,
+            config,
+            socket: mock,
+            cache_dir: temp_dir.path().to_path_buf(),
+        };
+
+        reorder(&mut ctx).expect("Reorder failed");
+
+        let actions = &ctx.socket.sent_actions;
+
+        // Window 1 (Special):
+        // X = Start (0) + Offset (0) = 0
+        assert!(actions.iter().any(|a| matches!(a,
+            Action::MoveFloatingWindow {
+                id: Some(1),
+                x: PositionChange::SetFixed(x),
+                ..
+            } if *x == 0.0
+        )));
+
+        // Window 2 (Default):
+        // X = Start (0) + Offset (Width1 + Gap) = 0 + 200 + 10 = 110
+        assert!(actions.iter().any(|a| matches!(a,
+            Action::MoveFloatingWindow {
+                id: Some(2),
+                x: PositionChange::SetFixed(x),
+                ..
+            } if *x == 110.0
+        )));
+    }
+
+    #[test]
+    fn test_window_rules_right_height_stacking_mixed() {
+        let temp_dir = tempdir().unwrap();
+        // Scenario: Right side.
+        // Window 1: Default (Height 200)
+        // Window 2: Special (Height 400)
+        // Window 3: Default (Height 200)
+        let w1 = mock_window(1, false, true, 1);
+        let mut w2 = mock_window(2, false, true, 1);
+        w2.app_id = Some("tall".into());
+        let w3 = mock_window(3, false, true, 1);
+        let mock = MockNiri::new(vec![w1, w2, w3]);
+        let mut config = mock_config();
+        config.interaction.position = SidebarPosition::Right;
+        config.geometry.height = 200;
+        config.geometry.gap = 10;
+        config.margins.top = 0;
+        config.margins.right = 0;
+        config.window_rule = vec![WindowRule {
+            app_id: Some(Regex::new("tall").unwrap()),
+            height: Some(400),
+            ..Default::default()
+        }];
+        let mut state = AppState::default();
+        state.windows.push((1, 300, 200));
+        state.windows.push((2, 300, 200));
+        state.windows.push((3, 300, 200));
+        let mut ctx = Ctx {
+            state,
+            config,
+            socket: mock,
+            cache_dir: temp_dir.path().to_path_buf(),
+        };
+        reorder(&mut ctx).expect("Reorder failed");
+        let actions = &ctx.socket.sent_actions;
+        // Screen H: 1080
+
+        // Window 1 (Default):
+        // Height 200.
+        // Y = ScreenH - Height - MarginTop - Offset
+        // Y = 1080 - 200 - 0 - 0 = 880
+        assert!(actions.iter().any(|a| matches!(a,
+            Action::MoveFloatingWindow {
+                id: Some(1),
+                y: PositionChange::SetFixed(y),
+                ..
+            } if *y == 880.0
+        )));
+        // Window 2 (Tall):
+        // Height 400.
+        // Previous Offset = Height1 + Gap = 200 + 10 = 210
+        // Y = ScreenH - Height - MarginTop - Offset
+        // Y = 1080 - 400 - 0 - 210 = 470
+        assert!(actions.iter().any(|a| matches!(a,
+            Action::MoveFloatingWindow {
+                id: Some(2),
+                y: PositionChange::SetFixed(y),
+                ..
+            } if *y == 470.0
+        )));
+        // Window 3 (Default):
+        // Height 200.
+        // Previous Offset = 210 + Height2 + Gap = 210 + 400 + 10 = 620
+        // Y = ScreenH - Height - MarginTop - Offset
+        // Y = 1080 - 200 - 0 - 620 = 260
+        assert!(actions.iter().any(|a| matches!(a,
+            Action::MoveFloatingWindow {
+                id: Some(3),
+                y: PositionChange::SetFixed(y),
+                ..
+            } if *y == 260.0
         )));
     }
 }
