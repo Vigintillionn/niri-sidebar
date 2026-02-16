@@ -1,4 +1,4 @@
-use crate::config::{Geometry, Interaction, Margins};
+use crate::config::{Geometry, Margins};
 use crate::{Config, NiriClient};
 use anyhow::Result;
 use niri_ipc::{Action, Response, Window, WindowLayout, Workspace};
@@ -82,7 +82,12 @@ pub fn mock_config() -> Config {
             height: 200,
             gap: 10,
         },
-        margins: Margins { top: 50, right: 20 },
+        margins: Margins {
+            top: 50,
+            right: 20,
+            left: 10,
+            bottom: 10,
+        },
         ..Default::default()
     }
 }

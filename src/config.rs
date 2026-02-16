@@ -5,6 +5,15 @@ use std::path::PathBuf;
 
 pub const DEFAULT_CONFIG_STR: &str = include_str!("../default_config.toml");
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum SidebarPosition {
+    Left,
+    Right,
+    Top,
+    Bottom,
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Config {
     pub geometry: Geometry,
@@ -21,15 +30,42 @@ pub struct Geometry {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Margins {
+    #[serde(default = "default_margin")]
     pub top: i32,
+    #[serde(default = "default_margin")]
     pub right: i32,
+    #[serde(default = "default_margin")]
+    pub left: i32,
+    #[serde(default = "default_margin")]
+    pub bottom: i32,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Interaction {
     pub peek: i32,
-    pub focus_peek: i32,
+    pub focus_peek: Option<i32>,
+    #[serde(default = "default_position")]
+    pub position: SidebarPosition,
+    #[serde(default = "default_sticky")]
     pub sticky: bool,
+}
+
+impl Interaction {
+    pub fn get_focus_peek(&self) -> i32 {
+        self.focus_peek.unwrap_or(self.peek)
+    }
+}
+
+fn default_sticky() -> bool {
+    false
+}
+
+fn default_position() -> SidebarPosition {
+    SidebarPosition::Right
+}
+
+fn default_margin() -> i32 {
+    0
 }
 
 impl Default for Config {
