@@ -177,4 +177,52 @@ mod tests {
             }
         )));
     }
+
+    #[test]
+    fn test_add_to_sidebar_with_window_rule() {
+        let temp_dir = tempdir().unwrap();
+        // Window with specific app_id to match rule
+        let mut win = mock_window(100, true, false, 1);
+        win.app_id = Some("special".into());
+
+        let mock = MockNiri::new(vec![win]);
+        let mut config = mock_config();
+
+        use crate::config::WindowRule;
+        use regex::Regex;
+        config.window_rule = vec![WindowRule {
+            app_id: Some(Regex::new("special").unwrap()),
+            width: Some(500),
+            height: Some(600),
+            ..Default::default()
+        }];
+        let mut ctx = Ctx {
+            state: AppState::default(),
+            config,
+            socket: mock,
+            cache_dir: temp_dir.path().to_path_buf(),
+        };
+        toggle_window(&mut ctx).expect("Command failed");
+
+        assert_eq!(ctx.state.windows.len(), 1);
+
+        let actions = &ctx.socket.sent_actions;
+        // Should set width to 500 (Rule width), not 300 (Config default)
+        assert!(actions.iter().any(|a| matches!(
+            a,
+            Action::SetWindowWidth {
+                change: SizeChange::SetFixed(500),
+                id: Some(100)
+            }
+        )));
+
+        // Should set height to 600 (Rule height)
+        assert!(actions.iter().any(|a| matches!(
+            a,
+            Action::SetWindowHeight {
+                change: SizeChange::SetFixed(600),
+                id: Some(100)
+            }
+        )));
+    }
 }
