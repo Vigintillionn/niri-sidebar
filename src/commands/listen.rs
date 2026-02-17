@@ -365,4 +365,43 @@ mod tests {
         // Reorder should not have run
         assert!(ctx.socket.sent_actions.is_empty());
     }
+
+    #[test]
+    fn test_process_new_window_ignores_after_removed_from_sidebar() {
+        let temp_dir = tempdir().unwrap();
+        unsafe {
+            std::env::set_var("NIRI_SIDEBAR_TEST_DIR", temp_dir.path());
+        }
+
+        let mut state = AppState::default();
+        state.ignored_windows.push(100);
+
+        let w100 = mock_window(100, true, true, 1);
+        let mock = MockNiri::new(vec![w100]);
+
+        let config = Config {
+            window_rule: vec![WindowRule {
+                app_id: Some(Regex::new(r"test").unwrap()),
+                auto_add: true,
+                ..Default::default()
+            }],
+            ..Default::default()
+        };
+
+        let mut ctx = Ctx {
+            state,
+            config,
+            socket: mock,
+            cache_dir: temp_dir.path().to_path_buf(),
+        };
+
+        let w100 = mock_window(100, true, true, 1);
+        process_new_window(&mut ctx, &w100).expect("Process new window failed");
+
+        // 100 ignored
+        assert!(!ctx.state.windows.iter().any(|(id, _, _)| *id == 100));
+        assert_eq!(ctx.state.windows.len(), 0);
+        // Reorder should not have run
+        assert!(ctx.socket.sent_actions.is_empty());
+    }
 }
