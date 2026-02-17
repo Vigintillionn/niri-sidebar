@@ -158,6 +158,9 @@ mod tests {
         // Should be empty now
         assert!(ctx.state.windows.is_empty());
 
+        // Should be added to ignore list
+        assert!(ctx.state.ignored_windows[0] == 100);
+
         // Should restore original size
         let actions = &ctx.socket.sent_actions;
 
