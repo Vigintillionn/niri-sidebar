@@ -333,7 +333,7 @@ mod tests {
         // 100 ignored
         assert!(!ctx.state.windows.iter().any(|(id, _, _)| *id == 100));
         assert_eq!(ctx.state.windows.len(), 0);
-        // Reorder should have run (sending actions)
+        // Reorder should not have run
         assert!(ctx.socket.sent_actions.is_empty());
     }
 
@@ -362,7 +362,7 @@ mod tests {
         // 100 ignored
         assert!(!ctx.state.windows.iter().any(|(id, _, _)| *id == 100));
         assert_eq!(ctx.state.windows.len(), 0);
-        // Reorder should have run (sending actions)
+        // Reorder should not have run
         assert!(ctx.socket.sent_actions.is_empty());
     }
 }
