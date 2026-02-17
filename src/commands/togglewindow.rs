@@ -62,7 +62,9 @@ fn remove_from_sidebar<C: NiriClient>(ctx: &mut Ctx<C>, window: &Window) -> Resu
         .iter()
         .position(|(id, _, _)| *id == window.id)
         .context("Window was not found in sidebar state")?;
-    let (_, orig_w, orig_h) = ctx.state.windows.remove(index);
+    let (id, orig_w, orig_h) = ctx.state.windows.remove(index);
+
+    ctx.state.ignored_windows.push(id);
 
     let _ = ctx.socket.send_action(Action::SetWindowWidth {
         change: SizeChange::SetFixed(orig_w),

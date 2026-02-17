@@ -107,6 +107,19 @@ pub fn process_move<C: NiriClient>(ctx: &mut Ctx<C>, ws_id: u64) -> Result<()> {
 }
 
 pub fn process_new_window<C: NiriClient>(ctx: &mut Ctx<C>, window: &Window) -> Result<()> {
+    // If window is removed from sidebar a WindowOpenedOrChanged event will happen
+    // and this if let will catch that and remove id from vector, prevents auto_add
+    // from being triggered immediately after window is removed from sidebar
+    if let Some(index) = ctx
+        .state
+        .ignored_windows
+        .iter()
+        .position(|id| id == &window.id)
+    {
+        ctx.state.ignored_windows.remove(index);
+        return Ok(());
+    }
+
     if resolve_auto_add(&ctx.config.window_rule, window)
         && !ctx.state.windows.iter().any(|(id, _, _)| *id == window.id)
     {
@@ -116,6 +129,7 @@ pub fn process_new_window<C: NiriClient>(ctx: &mut Ctx<C>, window: &Window) -> R
         save_state(&ctx.state, &ctx.cache_dir)?;
         reorder(ctx)?;
     }
+
     Ok(())
 }
 

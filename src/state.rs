@@ -7,6 +7,8 @@ use std::path::{Path, PathBuf};
 pub struct AppState {
     pub windows: Vec<(u64, i32, i32)>,
     #[serde(default)]
+    pub ignored_windows: Vec<u64>,
+    #[serde(default)]
     pub is_hidden: bool,
     #[serde(default)]
     pub is_flipped: bool,
@@ -51,6 +53,7 @@ mod tests {
 
         let original_state = AppState {
             windows: vec![(100, 500, 400), (200, 1920, 1080)],
+            ignored_windows: vec![100, 200],
             is_hidden: true,
             is_flipped: true,
         };
