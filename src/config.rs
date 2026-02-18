@@ -1,4 +1,5 @@
 use anyhow::{Context, Result};
+use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::PathBuf;
@@ -19,6 +20,8 @@ pub struct Config {
     pub geometry: Geometry,
     pub margins: Margins,
     pub interaction: Interaction,
+    #[serde(default)]
+    pub window_rule: Vec<WindowRule>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -66,6 +69,20 @@ fn default_position() -> SidebarPosition {
 
 fn default_margin() -> i32 {
     0
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct WindowRule {
+    #[serde(default, with = "serde_regex")]
+    pub app_id: Option<Regex>,
+    #[serde(default, with = "serde_regex")]
+    pub title: Option<Regex>,
+    pub width: Option<i32>,
+    pub height: Option<i32>,
+    pub peek: Option<i32>,
+    pub focus_peek: Option<i32>,
+    #[serde(default)]
+    pub auto_add: bool,
 }
 
 impl Default for Config {

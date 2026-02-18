@@ -2,6 +2,7 @@ use crate::Ctx;
 use crate::commands::reorder;
 use crate::niri::NiriClient;
 use crate::state::save_state;
+use crate::window_rules::resolve_window_size;
 use anyhow::{Context, Result};
 use niri_ipc::{Action, SizeChange, Window};
 
@@ -22,7 +23,9 @@ pub fn toggle_window<C: NiriClient>(ctx: &mut Ctx<C>) -> Result<()> {
     Ok(())
 }
 
-fn add_to_sidebar<C: NiriClient>(ctx: &mut Ctx<C>, window: &Window) -> Result<()> {
+// NOTE: wasn't pub previously, changed it for now so that listen can use this directly and pass
+// Window instead of relying on toggle_window
+pub fn add_to_sidebar<C: NiriClient>(ctx: &mut Ctx<C>, window: &Window) -> Result<()> {
     let (width, height) = window.layout.window_size;
     ctx.state.windows.push((window.id, width, height));
 
@@ -32,13 +35,20 @@ fn add_to_sidebar<C: NiriClient>(ctx: &mut Ctx<C>, window: &Window) -> Result<()
         });
     }
 
+    let (target_width, target_height) = resolve_window_size(
+        &ctx.config.window_rule,
+        window,
+        ctx.config.geometry.width,
+        ctx.config.geometry.height,
+    );
+
     let _ = ctx.socket.send_action(Action::SetWindowWidth {
-        change: SizeChange::SetFixed(ctx.config.geometry.width),
+        change: SizeChange::SetFixed(target_width),
         id: Some(window.id),
     });
 
     let _ = ctx.socket.send_action(Action::SetWindowHeight {
-        change: SizeChange::SetFixed(ctx.config.geometry.height),
+        change: SizeChange::SetFixed(target_height),
         id: Some(window.id),
     });
 
@@ -52,7 +62,9 @@ fn remove_from_sidebar<C: NiriClient>(ctx: &mut Ctx<C>, window: &Window) -> Resu
         .iter()
         .position(|(id, _, _)| *id == window.id)
         .context("Window was not found in sidebar state")?;
-    let (_, orig_w, orig_h) = ctx.state.windows.remove(index);
+    let (id, orig_w, orig_h) = ctx.state.windows.remove(index);
+
+    ctx.state.ignored_windows.push(id);
 
     let _ = ctx.socket.send_action(Action::SetWindowWidth {
         change: SizeChange::SetFixed(orig_w),
@@ -146,6 +158,9 @@ mod tests {
         // Should be empty now
         assert!(ctx.state.windows.is_empty());
 
+        // Should be added to ignore list
+        assert!(ctx.state.ignored_windows[0] == 100);
+
         // Should restore original size
         let actions = &ctx.socket.sent_actions;
 
@@ -163,6 +178,54 @@ mod tests {
             a,
             Action::SetWindowHeight {
                 change: SizeChange::SetFixed(800),
+                id: Some(100)
+            }
+        )));
+    }
+
+    #[test]
+    fn test_add_to_sidebar_with_window_rule() {
+        let temp_dir = tempdir().unwrap();
+        // Window with specific app_id to match rule
+        let mut win = mock_window(100, true, false, 1);
+        win.app_id = Some("special".into());
+
+        let mock = MockNiri::new(vec![win]);
+        let mut config = mock_config();
+
+        use crate::config::WindowRule;
+        use regex::Regex;
+        config.window_rule = vec![WindowRule {
+            app_id: Some(Regex::new("special").unwrap()),
+            width: Some(500),
+            height: Some(600),
+            ..Default::default()
+        }];
+        let mut ctx = Ctx {
+            state: AppState::default(),
+            config,
+            socket: mock,
+            cache_dir: temp_dir.path().to_path_buf(),
+        };
+        toggle_window(&mut ctx).expect("Command failed");
+
+        assert_eq!(ctx.state.windows.len(), 1);
+
+        let actions = &ctx.socket.sent_actions;
+        // Should set width to 500 (Rule width), not 300 (Config default)
+        assert!(actions.iter().any(|a| matches!(
+            a,
+            Action::SetWindowWidth {
+                change: SizeChange::SetFixed(500),
+                id: Some(100)
+            }
+        )));
+
+        // Should set height to 600 (Rule height)
+        assert!(actions.iter().any(|a| matches!(
+            a,
+            Action::SetWindowHeight {
+                change: SizeChange::SetFixed(600),
                 id: Some(100)
             }
         )));

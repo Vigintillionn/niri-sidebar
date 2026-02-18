@@ -110,6 +110,23 @@ peek = 10
 focus_peek = 50
 ```
 
+#### Window Rules
+
+Window rules allow you to customize behavior for specific windows based on their `app_id` or `title`. Rules are evaluated in order, and the first matching rule is applied. If a field is omitted in a rule, the global default configuration is used.
+
+```toml
+# Example window rule
+# all fields are optional if not given a default from other configs will be used
+[[window_rule]]
+app_id = "firefox"  # regex, if not set will match all app_id's
+title = "^Picture-in-Picture$"  # regex, if not set will match no matter the title
+width = 700
+height = 400
+focus_peek = 710
+peek = 10
+auto_add = true  # defaults to false
+```
+
 ## Workflow tips
 
 - **Adding/Removing:** Press `Mod+S` on any window to snap it into the sidebar. Press it again to return it to your normal tiling layout.
