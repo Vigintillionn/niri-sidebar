@@ -6,8 +6,6 @@ use crate::window_rules::resolve_window_size;
 use anyhow::{Context, Result};
 use niri_ipc::{Action, SizeChange, Window};
 
-// TODO: adjust tests to check new fields/behavior
-
 pub fn toggle_window<C: NiriClient>(ctx: &mut Ctx<C>) -> Result<()> {
     let focused = ctx.socket.get_active_window()?;
 
@@ -104,6 +102,7 @@ fn remove_from_sidebar<C: NiriClient>(ctx: &mut Ctx<C>, window: &Window) -> Resu
 
 #[cfg(test)]
 mod tests {
+    use niri_ipc::PositionChange;
     use tempfile::tempdir;
 
     use super::*;
@@ -111,9 +110,8 @@ mod tests {
     use crate::state::AppState;
     use crate::test_utils::{MockNiri, mock_config, mock_window};
 
-    // TODO: add case when floating and not when logic implemented
     #[test]
-    fn test_add_to_sidebar() {
+    fn test_add_to_sidebar_tiled() {
         let temp_dir = tempdir().unwrap();
         let win = mock_window(100, true, false, 1, None);
         let mock = MockNiri::new(vec![win]);
@@ -135,6 +133,8 @@ mod tests {
         assert_eq!(w_state.id, 100);
         assert_eq!(w_state.width, 1000);
         assert_eq!(w_state.height, 800);
+        assert!(!w_state.is_floating);
+        assert_eq!(w_state.position, None);
 
         let actions = &ctx.socket.sent_actions;
 
@@ -156,53 +156,45 @@ mod tests {
     }
 
     #[test]
-    fn test_remove_from_sidebar() {
+    fn test_add_to_sidebar_floating() {
         let temp_dir = tempdir().unwrap();
-        let win = mock_window(100, true, true, 1, None);
+        let win = mock_window(100, true, true, 1, Some((1.0, 2.0)));
         let mock = MockNiri::new(vec![win]);
 
-        let mut state = AppState::default();
-        let w1 = WindowState {
-            id: 100,
-            width: 1000,
-            height: 800,
-            is_floating: true,
-            position: None,
-        };
-        state.windows.push(w1);
+        let config = mock_config();
 
         let mut ctx = Ctx {
-            state,
-            config: Config::default(),
+            state: AppState::default(),
+            config,
             socket: mock,
             cache_dir: temp_dir.path().to_path_buf(),
         };
 
         toggle_window(&mut ctx).expect("Command failed");
 
-        // Should be empty now
-        assert!(ctx.state.windows.is_empty());
+        // Window 100 should be in the sidebar list with original size (1000x800)
+        assert_eq!(ctx.state.windows.len(), 1);
+        let w_state = &ctx.state.windows[0];
+        assert_eq!(w_state.id, 100);
+        assert_eq!(w_state.width, 1000);
+        assert_eq!(w_state.height, 800);
+        assert!(w_state.is_floating);
+        assert_eq!(w_state.position, Some((1.0, 2.0)));
 
-        // Should be added to ignore list
-        assert!(ctx.state.ignored_windows[0] == 100);
-
-        // Should restore original size
         let actions = &ctx.socket.sent_actions;
 
-        // Should restore width to 1000
+        // Should not toggle floating
+        assert!(
+            !actions
+                .iter()
+                .any(|a| matches!(a, Action::ToggleWindowFloating { id: Some(100) }))
+        );
+
+        // Should set width to 300 (config width)
         assert!(actions.iter().any(|a| matches!(
             a,
             Action::SetWindowWidth {
-                change: SizeChange::SetFixed(1000),
-                id: Some(100)
-            }
-        )));
-
-        // Should restore height to 800
-        assert!(actions.iter().any(|a| matches!(
-            a,
-            Action::SetWindowHeight {
-                change: SizeChange::SetFixed(800),
+                change: SizeChange::SetFixed(300),
                 id: Some(100)
             }
         )));
@@ -251,6 +243,184 @@ mod tests {
             a,
             Action::SetWindowHeight {
                 change: SizeChange::SetFixed(600),
+                id: Some(100)
+            }
+        )));
+    }
+
+    #[test]
+    fn test_remove_from_sidebar_floating_restore_pos() {
+        let temp_dir = tempdir().unwrap();
+        let win = mock_window(100, true, true, 1, Some((1.0, 2.0)));
+        let mock = MockNiri::new(vec![win]);
+
+        let mut state = AppState::default();
+        let w1 = WindowState {
+            id: 100,
+            width: 1000,
+            height: 800,
+            is_floating: true,
+            position: Some((1.0, 2.0)),
+        };
+        state.windows.push(w1);
+
+        let mut ctx = Ctx {
+            state,
+            config: Config::default(),
+            socket: mock,
+            cache_dir: temp_dir.path().to_path_buf(),
+        };
+
+        toggle_window(&mut ctx).expect("Command failed");
+
+        // Should be empty now
+        assert!(ctx.state.windows.is_empty());
+
+        // Should be added to ignore list
+        assert!(ctx.state.ignored_windows[0] == 100);
+
+        // Should restore original size and position
+        let actions = &ctx.socket.sent_actions;
+
+        // Should restore width to 1000
+        assert!(actions.iter().any(|a| matches!(
+            a,
+            Action::SetWindowWidth {
+                change: SizeChange::SetFixed(1000),
+                id: Some(100)
+            }
+        )));
+
+        // Should restore height to 800
+        assert!(actions.iter().any(|a| matches!(
+            a,
+            Action::SetWindowHeight {
+                change: SizeChange::SetFixed(800),
+                id: Some(100)
+            }
+        )));
+
+        // Should restore original position
+        assert!(actions.iter().any(|a| matches!(
+            a,
+            Action::MoveFloatingWindow {
+                id: Some(100),
+                x: PositionChange::SetFixed(1.0),
+                y: PositionChange::SetFixed(2.0)
+            }
+        )));
+    }
+
+    #[test]
+    fn test_remove_from_sidebar_floating_no_restore_pos() {
+        let temp_dir = tempdir().unwrap();
+        let win = mock_window(100, true, true, 1, Some((1.0, 2.0)));
+        let mock = MockNiri::new(vec![win]);
+
+        let mut state = AppState::default();
+        let w1 = WindowState {
+            id: 100,
+            width: 1000,
+            height: 800,
+            is_floating: true,
+            position: Some((1.0, 2.0)),
+        };
+        state.windows.push(w1);
+
+        let mut config = Config::default();
+        config.interaction.restore_position = false;
+
+        let mut ctx = Ctx {
+            state,
+            config,
+            socket: mock,
+            cache_dir: temp_dir.path().to_path_buf(),
+        };
+
+        toggle_window(&mut ctx).expect("Command failed");
+
+        // Should be empty now
+        assert!(ctx.state.windows.is_empty());
+
+        // Should be added to ignore list
+        assert!(ctx.state.ignored_windows[0] == 100);
+
+        // Should restore original size
+        let actions = &ctx.socket.sent_actions;
+
+        // Should only contain 2 actions
+        assert_eq!(actions.len(), 2);
+
+        // Should restore width to 1000
+        assert!(actions.iter().any(|a| matches!(
+            a,
+            Action::SetWindowWidth {
+                change: SizeChange::SetFixed(1000),
+                id: Some(100)
+            }
+        )));
+
+        // Should restore height to 800
+        assert!(actions.iter().any(|a| matches!(
+            a,
+            Action::SetWindowHeight {
+                change: SizeChange::SetFixed(800),
+                id: Some(100)
+            }
+        )));
+    }
+
+    #[test]
+    fn test_remove_from_sidebar_tiled() {
+        let temp_dir = tempdir().unwrap();
+        let win = mock_window(100, true, false, 1, None);
+        let mock = MockNiri::new(vec![win]);
+
+        let mut state = AppState::default();
+        let w1 = WindowState {
+            id: 100,
+            width: 1000,
+            height: 800,
+            is_floating: false,
+            position: None,
+        };
+        state.windows.push(w1);
+
+        let mut ctx = Ctx {
+            state,
+            config: Default::default(),
+            socket: mock,
+            cache_dir: temp_dir.path().to_path_buf(),
+        };
+
+        toggle_window(&mut ctx).expect("Command failed");
+
+        // Should be empty now
+        assert!(ctx.state.windows.is_empty());
+
+        // Should be added to ignore list
+        assert!(ctx.state.ignored_windows[0] == 100);
+
+        // Should restore original size
+        let actions = &ctx.socket.sent_actions;
+
+        // Should only contain 2 actions
+        assert_eq!(actions.len(), 2);
+
+        // Should restore width to 1000
+        assert!(actions.iter().any(|a| matches!(
+            a,
+            Action::SetWindowWidth {
+                change: SizeChange::SetFixed(1000),
+                id: Some(100)
+            }
+        )));
+
+        // Should restore height to 800
+        assert!(actions.iter().any(|a| matches!(
+            a,
+            Action::SetWindowHeight {
+                change: SizeChange::SetFixed(800),
                 id: Some(100)
             }
         )));
