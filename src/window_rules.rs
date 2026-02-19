@@ -75,7 +75,7 @@ mod tests {
     #[test]
     fn test_resolve_window_size_defaults() {
         let rules = vec![];
-        let window = mock_window(1, false, false, 1);
+        let window = mock_window(1, false, false, 1, Some((1.0, 2.0)));
         let (w, h) = resolve_window_size(&rules, &window, 100, 200);
         assert_eq!(w, 100);
         assert_eq!(h, 200);
@@ -89,7 +89,7 @@ mod tests {
             height: Some(600),
             ..Default::default()
         }];
-        let window = mock_window(1, false, false, 1); // mock_window has app_id "test"
+        let window = mock_window(1, false, false, 1, Some((1.0, 2.0))); // mock_window has app_id "test"
         let (w, h) = resolve_window_size(&rules, &window, 100, 200);
         assert_eq!(w, 500);
         assert_eq!(h, 600);
@@ -103,7 +103,7 @@ mod tests {
             height: Some(900),
             ..Default::default()
         }];
-        let window = mock_window(1, false, false, 1); // mock_window has title "Test Window"
+        let window = mock_window(1, false, false, 1, Some((1.0, 2.0))); // mock_window has title "Test Window"
         let (w, h) = resolve_window_size(&rules, &window, 100, 200);
         assert_eq!(w, 800);
         assert_eq!(h, 900);
@@ -117,7 +117,7 @@ mod tests {
             height: Some(600),
             ..Default::default()
         }];
-        let window = mock_window(1, false, false, 1);
+        let window = mock_window(1, false, false, 1, Some((1.0, 2.0)));
         let (w, h) = resolve_window_size(&rules, &window, 100, 200);
         assert_eq!(w, 100);
         assert_eq!(h, 200);
@@ -130,7 +130,7 @@ mod tests {
             peek: Some(50),
             ..Default::default()
         }];
-        let window = mock_window(1, false, false, 1);
+        let window = mock_window(1, false, false, 1, Some((1.0, 2.0)));
         let peek = resolve_rule_peek(&rules, &window, 10);
         assert_eq!(peek, 50);
     }
@@ -142,7 +142,7 @@ mod tests {
             peek: Some(50),
             ..Default::default()
         }];
-        let window = mock_window(1, false, false, 1);
+        let window = mock_window(1, false, false, 1, Some((1.0, 2.0)));
         let peek = resolve_rule_peek(&rules, &window, 10);
         assert_eq!(peek, 10);
     }
@@ -154,7 +154,7 @@ mod tests {
             focus_peek: Some(70),
             ..Default::default()
         }];
-        let window = mock_window(1, false, false, 1);
+        let window = mock_window(1, false, false, 1, Some((1.0, 2.0)));
         let peek = resolve_rule_focus_peek(&rules, &window, 20);
         assert_eq!(peek, 70);
     }
@@ -166,7 +166,7 @@ mod tests {
             focus_peek: Some(70),
             ..Default::default()
         }];
-        let window = mock_window(1, false, false, 1);
+        let window = mock_window(1, false, false, 1, Some((1.0, 2.0)));
         let peek = resolve_rule_focus_peek(&rules, &window, 20);
         assert_eq!(peek, 20);
     }
@@ -178,7 +178,7 @@ mod tests {
             auto_add: true,
             ..Default::default()
         }];
-        let window = mock_window(1, false, false, 1);
+        let window = mock_window(1, false, false, 1, Some((1.0, 2.0)));
         let auto_add = resolve_auto_add(&rules, &window);
         assert!(auto_add);
     }
@@ -190,7 +190,7 @@ mod tests {
             auto_add: true,
             ..Default::default()
         }];
-        let window = mock_window(1, false, false, 1);
+        let window = mock_window(1, false, false, 1, Some((1.0, 2.0)));
         let auto_add = resolve_auto_add(&rules, &window);
         assert!(!auto_add);
     }

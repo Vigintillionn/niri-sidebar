@@ -73,12 +73,7 @@ fn handle_new_window(window: &Window) -> Result<()> {
 }
 
 pub fn process_close<C: NiriClient>(ctx: &mut Ctx<C>, closed_id: u64) -> Result<()> {
-    if let Some(index) = ctx
-        .state
-        .windows
-        .iter()
-        .position(|(id, _, _)| *id == closed_id)
-    {
+    if let Some(index) = ctx.state.windows.iter().position(|w| w.id == closed_id) {
         println!("Sidebar window {} closed. Reordering...", closed_id);
 
         ctx.state.windows.remove(index);
@@ -100,7 +95,7 @@ pub fn process_move<C: NiriClient>(ctx: &mut Ctx<C>, ws_id: u64) -> Result<()> {
     let windows: Vec<_> = ctx.socket.get_windows()?;
     let sidebar_windows = windows
         .iter()
-        .filter(|w| ctx.state.windows.iter().any(|&(id, _, _)| id == w.id))
+        .filter(|w| ctx.state.windows.iter().any(|ws| ws.id == w.id))
         .collect();
     move_to(ctx, sidebar_windows, ws_id)?;
     Ok(())
@@ -121,10 +116,8 @@ pub fn process_new_window<C: NiriClient>(ctx: &mut Ctx<C>, window: &Window) -> R
     }
 
     if resolve_auto_add(&ctx.config.window_rule, window)
-        && !ctx.state.windows.iter().any(|(id, _, _)| *id == window.id)
+        && !ctx.state.windows.iter().any(|w| w.id == window.id)
     {
-        // NOTE: for now using add_to_sidebar, probably better than relying on new window being
-        // focused, niri window rules will interfere with that
         add_to_sidebar(ctx, window)?;
         save_state(&ctx.state, &ctx.cache_dir)?;
         reorder(ctx)?;
@@ -137,7 +130,7 @@ pub fn process_new_window<C: NiriClient>(ctx: &mut Ctx<C>, window: &Window) -> R
 mod tests {
     use super::*;
     use crate::config::{Config, WindowRule};
-    use crate::state::AppState;
+    use crate::state::{AppState, WindowState};
     use crate::test_utils::{MockNiri, mock_window};
     use niri_ipc::{Action, WorkspaceReferenceArg};
     use regex::Regex;
@@ -151,11 +144,25 @@ mod tests {
         }
 
         let mut state = AppState::default();
-        state.windows.push((100, 500, 500));
-        state.windows.push((200, 500, 500));
+        let w1 = WindowState {
+            id: 100,
+            width: 500,
+            height: 500,
+            is_floating: false,
+            position: None,
+        };
+        let w2 = WindowState {
+            id: 200,
+            width: 500,
+            height: 500,
+            is_floating: true,
+            position: Some((1.0, 2.0)),
+        };
+        state.windows.push(w1);
+        state.windows.push(w2);
 
-        let w100 = mock_window(100, true, true, 1);
-        let w200 = mock_window(200, true, true, 1);
+        let w100 = mock_window(100, true, true, 1, Some((1.0, 2.0)));
+        let w200 = mock_window(200, false, true, 1, Some((1.0, 2.0)));
         let mock = MockNiri::new(vec![w100, w200]);
 
         let mut ctx = Ctx {
@@ -168,9 +175,9 @@ mod tests {
         process_close(&mut ctx, 100).expect("Process close failed");
 
         // 100 removed
-        assert!(!ctx.state.windows.iter().any(|(id, _, _)| *id == 100));
+        assert!(!ctx.state.windows.iter().any(|w| w.id == 100));
         assert_eq!(ctx.state.windows.len(), 1);
-        assert_eq!(ctx.state.windows[0].0, 200);
+        assert_eq!(ctx.state.windows[0].id, 200);
         // Reorder should have run (sending actions)
         assert!(!ctx.socket.sent_actions.is_empty());
     }
@@ -183,7 +190,14 @@ mod tests {
         }
 
         let mut state = AppState::default();
-        state.windows.push((100, 500, 500));
+        let w1 = WindowState {
+            id: 100,
+            width: 500,
+            height: 500,
+            is_floating: false,
+            position: None,
+        };
+        state.windows.push(w1);
 
         let mock = MockNiri::new(vec![]);
 
@@ -198,7 +212,7 @@ mod tests {
 
         // State should still have Window 100
         assert_eq!(ctx.state.windows.len(), 1);
-        assert_eq!(ctx.state.windows[0].0, 100);
+        assert_eq!(ctx.state.windows[0].id, 100);
 
         // No reorder actions should have been sent
         assert!(ctx.socket.sent_actions.is_empty());
@@ -212,15 +226,29 @@ mod tests {
         }
 
         let mut state = AppState::default();
-        state.windows.push((10, 100, 100));
-        state.windows.push((20, 100, 100));
+        let w1 = WindowState {
+            id: 10,
+            width: 100,
+            height: 200,
+            is_floating: true,
+            position: Some((1.0, 2.0)),
+        };
+        let w2 = WindowState {
+            id: 20,
+            width: 100,
+            height: 200,
+            is_floating: true,
+            position: Some((1.0, 2.0)),
+        };
+        state.windows.push(w1);
+        state.windows.push(w2);
 
         // Window 10: Tracked, on WS 1
-        let w10 = mock_window(10, true, false, 1);
+        let w10 = mock_window(10, true, false, 1, Some((1.0, 2.0)));
         // Window 20: Tracked, on WS 2
-        let w20 = mock_window(20, true, false, 2);
+        let w20 = mock_window(20, true, false, 2, Some((1.0, 2.0)));
         // Window 30: Untracked, on WS 1
-        let w30 = mock_window(30, true, false, 1);
+        let w30 = mock_window(30, true, false, 1, Some((1.0, 2.0)));
 
         let mock = MockNiri::new(vec![w10, w20, w30]);
 
@@ -269,7 +297,7 @@ mod tests {
 
         let state = AppState::default();
 
-        let w100 = mock_window(100, true, true, 1);
+        let w100 = mock_window(100, true, true, 1, Some((1.0, 2.0)));
         let mock = MockNiri::new(vec![w100]);
 
         let config = Config {
@@ -288,13 +316,13 @@ mod tests {
             cache_dir: temp_dir.path().to_path_buf(),
         };
 
-        let w100 = mock_window(100, true, true, 1);
+        let w100 = mock_window(100, true, true, 1, Some((1.0, 2.0)));
         process_new_window(&mut ctx, &w100).expect("Process new window failed");
 
         // 100 added
-        assert!(ctx.state.windows.iter().any(|(id, _, _)| *id == 100));
+        assert!(ctx.state.windows.iter().any(|w| w.id == 100));
         assert_eq!(ctx.state.windows.len(), 1);
-        assert_eq!(ctx.state.windows[0].0, 100);
+        assert_eq!(ctx.state.windows[0].id, 100);
         // Reorder should have run (sending actions)
         assert!(!ctx.socket.sent_actions.is_empty());
     }
@@ -308,7 +336,7 @@ mod tests {
 
         let state = AppState::default();
 
-        let w100 = mock_window(100, true, true, 1);
+        let w100 = mock_window(100, true, true, 1, Some((1.0, 2.0)));
         let mock = MockNiri::new(vec![w100]);
 
         let config = Config {
@@ -327,11 +355,11 @@ mod tests {
             cache_dir: temp_dir.path().to_path_buf(),
         };
 
-        let w100 = mock_window(100, true, true, 1);
+        let w100 = mock_window(100, true, true, 1, Some((1.0, 2.0)));
         process_new_window(&mut ctx, &w100).expect("Process new window failed");
 
         // 100 ignored
-        assert!(!ctx.state.windows.iter().any(|(id, _, _)| *id == 100));
+        assert!(!ctx.state.windows.iter().any(|w| w.id == 100));
         assert_eq!(ctx.state.windows.len(), 0);
         // Reorder should not have run
         assert!(ctx.socket.sent_actions.is_empty());
@@ -346,7 +374,7 @@ mod tests {
 
         let state = AppState::default();
 
-        let w100 = mock_window(100, true, true, 1);
+        let w100 = mock_window(100, true, true, 1, Some((1.0, 2.0)));
         let mock = MockNiri::new(vec![w100]);
 
         let mut ctx = Ctx {
@@ -356,11 +384,11 @@ mod tests {
             cache_dir: temp_dir.path().to_path_buf(),
         };
 
-        let w100 = mock_window(100, true, true, 1);
+        let w100 = mock_window(100, true, true, 1, Some((1.0, 2.0)));
         process_new_window(&mut ctx, &w100).expect("Process new window failed");
 
         // 100 ignored
-        assert!(!ctx.state.windows.iter().any(|(id, _, _)| *id == 100));
+        assert!(!ctx.state.windows.iter().any(|w| w.id == 100));
         assert_eq!(ctx.state.windows.len(), 0);
         // Reorder should not have run
         assert!(ctx.socket.sent_actions.is_empty());
@@ -376,7 +404,7 @@ mod tests {
         let mut state = AppState::default();
         state.ignored_windows.push(100);
 
-        let w100 = mock_window(100, true, true, 1);
+        let w100 = mock_window(100, true, true, 1, Some((1.0, 2.0)));
         let mock = MockNiri::new(vec![w100]);
 
         let config = Config {
@@ -395,11 +423,11 @@ mod tests {
             cache_dir: temp_dir.path().to_path_buf(),
         };
 
-        let w100 = mock_window(100, true, true, 1);
+        let w100 = mock_window(100, true, true, 1, Some((1.0, 2.0)));
         process_new_window(&mut ctx, &w100).expect("Process new window failed");
 
         // 100 ignored
-        assert!(!ctx.state.windows.iter().any(|(id, _, _)| *id == 100));
+        assert!(!ctx.state.windows.iter().any(|w| w.id == 100));
         assert_eq!(ctx.state.windows.len(), 0);
         // Reorder should not have run
         assert!(ctx.socket.sent_actions.is_empty());

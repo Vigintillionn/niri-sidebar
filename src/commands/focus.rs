@@ -1,4 +1,5 @@
 use crate::niri::NiriClient;
+use crate::state::WindowState;
 use crate::{Ctx, Direction};
 use anyhow::Result;
 use niri_ipc::Action;
@@ -11,11 +12,7 @@ pub fn focus<C: NiriClient>(ctx: &mut Ctx<C>, direction: Direction) -> Result<()
     }
 
     let active_window = ctx.socket.get_active_window()?.id;
-    let current_index_opt = ctx
-        .state
-        .windows
-        .iter()
-        .position(|&(id, _, _)| id == active_window);
+    let current_index_opt = ctx.state.windows.iter().position(|w| w.id == active_window);
 
     let next_index = if let Some(i) = current_index_opt {
         match direction {
@@ -29,7 +26,7 @@ pub fn focus<C: NiriClient>(ctx: &mut Ctx<C>, direction: Direction) -> Result<()
         }
     };
 
-    if let Some((id, _, _)) = ctx.state.windows.get(next_index) {
+    if let Some(WindowState { id, .. }) = ctx.state.windows.get(next_index) {
         let _ = ctx.socket.send_action(Action::FocusWindow { id: *id });
     }
 
@@ -51,15 +48,36 @@ mod tests_focus {
         // Sidebar has [A, B, C]. Focused is B (Index 1).
         // Next => (i + len - 1) % len => (1 + 3 - 1) % 3 = 0. So focus A
 
-        let win_a = mock_window(1, false, true, 1);
-        let win_b = mock_window(2, true, true, 1);
-        let win_c = mock_window(3, false, true, 1);
+        let win_a = mock_window(1, false, true, 1, Some((1.0, 2.0)));
+        let win_b = mock_window(2, true, true, 1, Some((1.0, 2.0)));
+        let win_c = mock_window(3, false, true, 1, Some((1.0, 2.0)));
         let mock = MockNiri::new(vec![win_a, win_b, win_c]);
 
         let mut state = AppState::default();
-        state.windows.push((1, 100, 100));
-        state.windows.push((2, 100, 100));
-        state.windows.push((3, 100, 100));
+        let w1 = WindowState {
+            id: 1,
+            width: 100,
+            height: 100,
+            is_floating: false,
+            position: None,
+        };
+        let w2 = WindowState {
+            id: 2,
+            width: 100,
+            height: 100,
+            is_floating: true,
+            position: Some((1.0, 2.0)),
+        };
+        let w3 = WindowState {
+            id: 3,
+            width: 100,
+            height: 100,
+            is_floating: true,
+            position: Some((1.0, 2.0)),
+        };
+        state.windows.push(w1);
+        state.windows.push(w2);
+        state.windows.push(w3);
 
         let mut ctx = Ctx {
             state,
@@ -84,15 +102,36 @@ mod tests_focus {
         // Sidebar has [A, B, C]. Focused is B (Index 1).
         // Prev => (i + 1) % len => (1 + 1) % 3 = 2. So focus C
         //
-        let win_a = mock_window(1, false, true, 1);
-        let win_b = mock_window(2, true, true, 1);
-        let win_c = mock_window(3, false, true, 1);
+        let win_a = mock_window(1, false, true, 1, Some((1.0, 2.0)));
+        let win_b = mock_window(2, true, true, 1, Some((1.0, 2.0)));
+        let win_c = mock_window(3, false, true, 1, Some((1.0, 2.0)));
         let mock = MockNiri::new(vec![win_a, win_b, win_c]);
 
         let mut state = AppState::default();
-        state.windows.push((1, 100, 100));
-        state.windows.push((2, 100, 100));
-        state.windows.push((3, 100, 100));
+        let w1 = WindowState {
+            id: 1,
+            width: 100,
+            height: 100,
+            is_floating: false,
+            position: None,
+        };
+        let w2 = WindowState {
+            id: 2,
+            width: 100,
+            height: 100,
+            is_floating: true,
+            position: Some((1.0, 2.0)),
+        };
+        let w3 = WindowState {
+            id: 3,
+            width: 100,
+            height: 100,
+            is_floating: true,
+            position: Some((1.0, 2.0)),
+        };
+        state.windows.push(w1);
+        state.windows.push(w2);
+        state.windows.push(w3);
 
         let mut ctx = Ctx {
             state,
@@ -118,14 +157,28 @@ mod tests_focus {
         // Next: len - 1 (Last item).
         // Prev: 0 (First item).
 
-        let win_a = mock_window(1, false, true, 1);
-        let win_b = mock_window(2, false, true, 1);
-        let win_z = mock_window(99, true, false, 1);
+        let win_a = mock_window(1, false, true, 1, Some((1.0, 2.0)));
+        let win_b = mock_window(2, false, true, 1, Some((1.0, 2.0)));
+        let win_z = mock_window(99, true, false, 1, None);
         let mock = MockNiri::new(vec![win_a, win_b, win_z]);
 
         let mut state = AppState::default();
-        state.windows.push((1, 100, 100));
-        state.windows.push((2, 100, 100));
+        let w1 = WindowState {
+            id: 1,
+            width: 100,
+            height: 100,
+            is_floating: false,
+            position: None,
+        };
+        let w2 = WindowState {
+            id: 2,
+            width: 100,
+            height: 100,
+            is_floating: true,
+            position: Some((1.0, 2.0)),
+        };
+        state.windows.push(w1);
+        state.windows.push(w2);
 
         let mut ctx = Ctx {
             state,
@@ -158,7 +211,7 @@ mod tests_focus {
     #[test]
     fn test_focus_empty_sidebar() {
         let temp_dir = tempdir().unwrap();
-        let win = mock_window(99, true, false, 1);
+        let win = mock_window(99, true, false, 1, None);
         let mock = MockNiri::new(vec![win]);
 
         // Empty state
