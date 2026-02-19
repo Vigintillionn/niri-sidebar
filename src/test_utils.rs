@@ -92,7 +92,7 @@ pub fn mock_config() -> Config {
             top: 50,
             right: 20,
             left: 10,
-            bottom: 10,
+            bottom: 50,
         },
         ..Default::default()
     }

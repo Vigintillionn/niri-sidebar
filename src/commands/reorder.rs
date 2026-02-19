@@ -775,6 +775,7 @@ mod tests {
         config.geometry.gap = 10;
         config.margins.top = 0;
         config.margins.right = 0;
+        config.margins.bottom = 0;
         config.window_rule = vec![WindowRule {
             app_id: Some(Regex::new("tall").unwrap()),
             height: Some(400),
