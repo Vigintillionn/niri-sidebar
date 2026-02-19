@@ -118,8 +118,6 @@ pub fn process_new_window<C: NiriClient>(ctx: &mut Ctx<C>, window: &Window) -> R
     if resolve_auto_add(&ctx.config.window_rule, window)
         && !ctx.state.windows.iter().any(|w| w.id == window.id)
     {
-        // NOTE: for now using add_to_sidebar, probably better than relying on new window being
-        // focused, niri window rules will interfere with that
         add_to_sidebar(ctx, window)?;
         save_state(&ctx.state, &ctx.cache_dir)?;
         reorder(ctx)?;
