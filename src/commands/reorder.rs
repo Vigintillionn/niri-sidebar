@@ -37,7 +37,7 @@ fn calculate_coordinates<C: NiriClient>(
             let hidden_x = sw - active_peek;
             let x = if state.is_hidden { hidden_x } else { visible_x };
 
-            let start_y = sh - h - margins.top;
+            let start_y = sh - h - margins.bottom;
             let y = start_y - stack_offset;
             (x, y)
         }
@@ -46,7 +46,7 @@ fn calculate_coordinates<C: NiriClient>(
             let hidden_x = -w + active_peek;
             let x = if state.is_hidden { hidden_x } else { visible_x };
 
-            let start_y = sh - h - margins.top;
+            let start_y = sh - h - margins.bottom;
             let y = start_y - stack_offset;
             (x, y)
         }
