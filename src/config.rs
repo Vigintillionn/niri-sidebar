@@ -51,8 +51,6 @@ pub struct Interaction {
     pub position: SidebarPosition,
     #[serde(default = "default_sticky")]
     pub sticky: bool,
-    #[serde(default = "default_restore_pos")]
-    pub restore_position: bool,
 }
 
 impl Interaction {
@@ -71,10 +69,6 @@ fn default_position() -> SidebarPosition {
 
 fn default_margin() -> i32 {
     0
-}
-
-fn default_restore_pos() -> bool {
-    true
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]

@@ -88,7 +88,7 @@ fn remove_from_sidebar<C: NiriClient>(ctx: &mut Ctx<C>, window: &Window) -> Resu
     }
 
     if let Some((x, y)) = w_state.position
-        && ctx.config.interaction.restore_position
+        && window.is_floating
     {
         let _ = ctx.socket.send_action(Action::MoveFloatingWindow {
             id: Some(window.id),
@@ -307,65 +307,6 @@ mod tests {
                 id: Some(100),
                 x: PositionChange::SetFixed(1.0),
                 y: PositionChange::SetFixed(2.0)
-            }
-        )));
-    }
-
-    #[test]
-    fn test_remove_from_sidebar_floating_no_restore_pos() {
-        let temp_dir = tempdir().unwrap();
-        let win = mock_window(100, true, true, 1, Some((1.0, 2.0)));
-        let mock = MockNiri::new(vec![win]);
-
-        let mut state = AppState::default();
-        let w1 = WindowState {
-            id: 100,
-            width: 1000,
-            height: 800,
-            is_floating: true,
-            position: Some((1.0, 2.0)),
-        };
-        state.windows.push(w1);
-
-        let mut config = Config::default();
-        config.interaction.restore_position = false;
-
-        let mut ctx = Ctx {
-            state,
-            config,
-            socket: mock,
-            cache_dir: temp_dir.path().to_path_buf(),
-        };
-
-        toggle_window(&mut ctx).expect("Command failed");
-
-        // Should be empty now
-        assert!(ctx.state.windows.is_empty());
-
-        // Should be added to ignore list
-        assert!(ctx.state.ignored_windows[0] == 100);
-
-        // Should restore original size
-        let actions = &ctx.socket.sent_actions;
-
-        // Should only contain 2 actions
-        assert_eq!(actions.len(), 2);
-
-        // Should restore width to 1000
-        assert!(actions.iter().any(|a| matches!(
-            a,
-            Action::SetWindowWidth {
-                change: SizeChange::SetFixed(1000),
-                id: Some(100)
-            }
-        )));
-
-        // Should restore height to 800
-        assert!(actions.iter().any(|a| matches!(
-            a,
-            Action::SetWindowHeight {
-                change: SizeChange::SetFixed(800),
-                id: Some(100)
             }
         )));
     }
