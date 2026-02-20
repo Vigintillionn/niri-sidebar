@@ -14,7 +14,7 @@ pub fn toggle_visibility<C: NiriClient>(ctx: &mut Ctx<C>) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::state::AppState;
+    use crate::state::{AppState, WindowState};
     use crate::test_utils::{MockNiri, mock_config, mock_window};
     use niri_ipc::{Action, PositionChange};
     use tempfile::tempdir;
@@ -22,11 +22,18 @@ mod tests {
     #[test]
     fn test_toggle_visibility() {
         let temp_dir = tempdir().unwrap();
-        let win = mock_window(100, false, true, 1);
+        let win = mock_window(100, false, true, 1, Some((1.0, 2.0)));
         let mock = MockNiri::new(vec![win]);
 
         let mut state = AppState::default();
-        state.windows.push((100, 300, 500));
+        let w1 = WindowState {
+            id: 100,
+            width: 300,
+            height: 500,
+            is_floating: false,
+            position: None,
+        };
+        state.windows.push(w1);
         state.is_hidden = false;
 
         let mut ctx = Ctx {

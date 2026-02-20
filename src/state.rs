@@ -3,13 +3,24 @@ use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::{Path, PathBuf};
 
-#[derive(Debug, Serialize, Deserialize, Default, PartialEq, Eq)]
+#[derive(Debug, Serialize, Deserialize, Default, PartialEq)]
 pub struct AppState {
-    pub windows: Vec<(u64, i32, i32)>,
+    pub windows: Vec<WindowState>,
+    #[serde(default)]
+    pub ignored_windows: Vec<u64>,
     #[serde(default)]
     pub is_hidden: bool,
     #[serde(default)]
     pub is_flipped: bool,
+}
+
+#[derive(Debug, Serialize, Deserialize, PartialEq)]
+pub struct WindowState {
+    pub id: u64,
+    pub width: i32,
+    pub height: i32,
+    pub is_floating: bool,
+    pub position: Option<(f64, f64)>,
 }
 
 pub fn get_default_cache_dir() -> Result<PathBuf> {
@@ -49,8 +60,24 @@ mod tests {
     fn test_save_and_load_roundtrip() {
         let temp_dir = tempdir().unwrap();
 
+        let w1 = WindowState {
+            id: 100,
+            width: 500,
+            height: 400,
+            is_floating: false,
+            position: None,
+        };
+        let w2 = WindowState {
+            id: 200,
+            width: 1920,
+            height: 1080,
+            is_floating: true,
+            position: Some((1.0, 2.0)),
+        };
+
         let original_state = AppState {
-            windows: vec![(100, 500, 400), (200, 1920, 1080)],
+            windows: vec![w1, w2],
+            ignored_windows: vec![100, 200],
             is_hidden: true,
             is_flipped: true,
         };

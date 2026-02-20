@@ -1,4 +1,4 @@
-use crate::config::{Geometry, Interaction, Margins};
+use crate::config::{Geometry, Margins};
 use crate::{Config, NiriClient};
 use anyhow::Result;
 use niri_ipc::{Action, Response, Window, WindowLayout, Workspace};
@@ -54,7 +54,13 @@ impl NiriClient for MockNiri {
     }
 }
 
-pub fn mock_window(id: u64, is_focused: bool, is_floating: bool, workspace_id: u64) -> Window {
+pub fn mock_window(
+    id: u64,
+    is_focused: bool,
+    is_floating: bool,
+    workspace_id: u64,
+    position: Option<(f64, f64)>,
+) -> Window {
     Window {
         id,
         is_focused,
@@ -68,7 +74,7 @@ pub fn mock_window(id: u64, is_focused: bool, is_floating: bool, workspace_id: u
             window_size: (1000, 800),
             pos_in_scrolling_layout: None,
             tile_size: (0.0, 0.0),
-            tile_pos_in_workspace_view: None,
+            tile_pos_in_workspace_view: position,
             window_offset_in_tile: (0.0, 0.0),
         },
         focus_timestamp: None,
@@ -82,7 +88,12 @@ pub fn mock_config() -> Config {
             height: 200,
             gap: 10,
         },
-        margins: Margins { top: 50, right: 20 },
+        margins: Margins {
+            top: 50,
+            right: 20,
+            left: 10,
+            bottom: 50,
+        },
         ..Default::default()
     }
 }

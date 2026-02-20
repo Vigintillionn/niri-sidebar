@@ -31,6 +31,11 @@ enum Commands {
         #[arg(value_enum, default_value_t = Direction::Next)]
         direction: Direction,
     },
+    /// Move the sidebar from a specific workspace to the current workspace
+    MoveFrom {
+        #[arg()]
+        workspace: u64,
+    },
     /// Generate a default config file if none exists
     Init,
     /// Run a daemon to listen for window close events
@@ -77,6 +82,7 @@ fn main() -> Result<()> {
         Commands::Reorder => commands::reorder(&mut ctx)?,
         Commands::Close => commands::close(&mut ctx)?,
         Commands::Focus { direction } => commands::focus(&mut ctx, direction)?,
+        Commands::MoveFrom { workspace } => commands::move_from(&mut ctx, workspace)?,
         Commands::Init => unreachable!(),
         Commands::Listen => commands::listen(ctx)?,
     }

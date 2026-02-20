@@ -96,18 +96,46 @@ height = 335
 gap = 10
 
 [margins]
-# Space from the top/bottom of the screen
+# Margins are default to 0 if left out
+# Space from the top of the screen
 top = 50
 # Space from the right edge of the screen
 right = 10
+# Space from the left edge of the screen
+left = 10
+# Space from the bottom of the screen
+bottom = 10
 
 [interaction]
+# Where to put the sidebar, can be "left", "right", "top" or "bottom"
+# Defaults to "right"
+position = "right"
 # Width of windows when sidebar is hidden in pixels
 peek = 10
 # Width of window when sidebar is hidden but window is focused in pixels
 # set this equal to peek to disable this feature
 # set this equal to sidebar_width + offset_right to make focused windows "unhide"
+# Optional and defaults to peek if ommitted
 focus_peek = 50
+# Whether the sidebar should follow if you switch workspaces
+sticky = false
+```
+
+#### Window Rules
+
+Window rules allow you to customize behavior for specific windows based on their `app_id` or `title`. Rules are evaluated in order, and the first matching rule is applied. If a field is omitted in a rule, the global default configuration is used.
+
+```toml
+# Example window rule
+# all fields are optional if not given a default from other configs will be used
+[[window_rule]]
+app_id = "firefox"  # regex, if not set will match all app_id's
+title = "^Picture-in-Picture$"  # regex, if not set will match no matter the title
+width = 700
+height = 400
+focus_peek = 710
+peek = 10
+auto_add = true  # defaults to false
 ```
 
 ## Workflow tips

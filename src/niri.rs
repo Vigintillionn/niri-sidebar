@@ -24,11 +24,11 @@ impl NiriClient for Socket {
     }
 
     fn get_active_window(&mut self) -> Result<Window> {
-        let windows = self.get_windows()?;
-        windows
-            .into_iter()
-            .find(|w| w.is_focused)
-            .context("No focused window.")
+        match self.send(Request::FocusedWindow)? {
+            Ok(Response::FocusedWindow(Some(window))) => Ok(window),
+            Ok(Response::FocusedWindow(None)) => bail!("No window focused"),
+            _ => bail!("Unexpected response from Niri when fetching windows"),
+        }
     }
 
     fn get_active_workspace(&mut self) -> Result<Workspace> {
