@@ -30,10 +30,8 @@ peek = 10
 # set this equal to sidebar_width + offset_right to make focused windows "unhide"
 # Optional and defaults to peek if ommitted
 focus_peek = 50
-# If the sidebar is sticky, moving to the active workspace with the user
+# Whether the sidebar should follow if you switch workspaces
 sticky = false
-# Restores original position and state if window was floating before being added to the sidebar
-restore_position = true
 
 # Example window rule
 # all fields are optional if not given a default from other configs will be used
