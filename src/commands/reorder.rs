@@ -1,4 +1,4 @@
-use crate::config::SidebarPosition;
+use crate::config::{SidebarAnchor, SidebarPosition};
 use crate::niri::NiriClient;
 use crate::state::save_state;
 use crate::window_rules::{resolve_rule_focus_peek, resolve_rule_peek, resolve_window_size};
@@ -37,8 +37,16 @@ fn calculate_coordinates<C: NiriClient>(
             let hidden_x = sw - active_peek;
             let x = if state.is_hidden { hidden_x } else { visible_x };
 
-            let start_y = sh - h - margins.bottom;
-            let y = start_y - stack_offset;
+            let anchor = ctx.config.interaction.anchor;
+            let y = match anchor {
+                SidebarAnchor::Bottom => {
+                    let start_y = sh - h - margins.bottom;
+                    start_y - stack_offset
+                }
+                SidebarAnchor::Top => {
+                    margins.top + stack_offset
+                }
+            };
             (x, y)
         }
         SidebarPosition::Left => {
@@ -46,8 +54,16 @@ fn calculate_coordinates<C: NiriClient>(
             let hidden_x = -w + active_peek;
             let x = if state.is_hidden { hidden_x } else { visible_x };
 
-            let start_y = sh - h - margins.bottom;
-            let y = start_y - stack_offset;
+            let anchor = ctx.config.interaction.anchor;
+            let y = match anchor {
+                SidebarAnchor::Bottom => {
+                    let start_y = sh - h - margins.bottom;
+                    start_y - stack_offset
+                }
+                SidebarAnchor::Top => {
+                    margins.top + stack_offset
+                }
+            };
             (x, y)
         }
         SidebarPosition::Bottom => {

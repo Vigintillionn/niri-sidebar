@@ -31,6 +31,10 @@ peek = 10
 # Optional and defaults to peek if ommitted
 focus_peek = 50
 # Whether the sidebar should follow if you switch workspaces
+# Anchor point for stacking windows when position is "left" or "right"
+# "bottom" (default): windows stack from the bottom of the screen upward
+# "top": windows stack from the top of the screen downward
+anchor = "bottom"
 sticky = false
 
 # Example window rule
