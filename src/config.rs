@@ -15,6 +15,15 @@ pub enum SidebarPosition {
     Bottom,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum SidebarAnchor {
+    Top,
+    Bottom,
+    Left,
+    Right,
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Config {
     pub geometry: Geometry,
@@ -49,6 +58,8 @@ pub struct Interaction {
     pub focus_peek: Option<i32>,
     #[serde(default = "default_position")]
     pub position: SidebarPosition,
+    #[serde(default = "default_anchor")]
+    pub anchor: SidebarAnchor,
     #[serde(default = "default_sticky")]
     pub sticky: bool,
 }
@@ -57,6 +68,10 @@ impl Interaction {
     pub fn get_focus_peek(&self) -> i32 {
         self.focus_peek.unwrap_or(self.peek)
     }
+}
+
+fn default_anchor() -> SidebarAnchor {
+    SidebarAnchor::Bottom
 }
 
 fn default_sticky() -> bool {

@@ -17,7 +17,7 @@ right = 10
 # Space from the left edge of the screen
 left = 10
 # Space from the bottom of the screen
-bottom = 10 
+bottom = 10
 
 [interaction]
 # Where to put the sidebar, can be "left", "right", "top" or "bottom"
@@ -31,6 +31,14 @@ peek = 10
 # Optional and defaults to peek if ommitted
 focus_peek = 50
 # Whether the sidebar should follow if you switch workspaces
+# Anchor point for stacking windows
+# For position "left" or "right":
+#   "bottom" (default): windows stack from the bottom of the screen upward
+#   "top": windows stack from the top of the screen downward
+# For position "top" or "bottom":
+#   "left" (default): windows stack from the left edge rightward
+#   "right": windows stack from the right edge leftward
+anchor = "bottom"
 sticky = false
 
 # Example window rule

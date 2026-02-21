@@ -1,4 +1,4 @@
-use crate::config::SidebarPosition;
+use crate::config::{SidebarAnchor, SidebarPosition};
 use crate::niri::NiriClient;
 use crate::state::save_state;
 use crate::window_rules::{resolve_rule_focus_peek, resolve_rule_peek, resolve_window_size};
@@ -37,8 +37,15 @@ fn calculate_coordinates<C: NiriClient>(
             let hidden_x = sw - active_peek;
             let x = if state.is_hidden { hidden_x } else { visible_x };
 
-            let start_y = sh - h - margins.bottom;
-            let y = start_y - stack_offset;
+            let anchor = ctx.config.interaction.anchor;
+            let y = match anchor {
+                SidebarAnchor::Top => margins.top + stack_offset,
+                // Bottom is the default; Left/Right don't apply to vertical stacking
+                SidebarAnchor::Bottom | SidebarAnchor::Left | SidebarAnchor::Right => {
+                    let start_y = sh - h - margins.bottom;
+                    start_y - stack_offset
+                }
+            };
             (x, y)
         }
         SidebarPosition::Left => {
@@ -46,13 +53,26 @@ fn calculate_coordinates<C: NiriClient>(
             let hidden_x = -w + active_peek;
             let x = if state.is_hidden { hidden_x } else { visible_x };
 
-            let start_y = sh - h - margins.bottom;
-            let y = start_y - stack_offset;
+            let anchor = ctx.config.interaction.anchor;
+            let y = match anchor {
+                SidebarAnchor::Top => margins.top + stack_offset,
+                // Bottom is the default; Left/Right don't apply to vertical stacking
+                SidebarAnchor::Bottom | SidebarAnchor::Left | SidebarAnchor::Right => {
+                    let start_y = sh - h - margins.bottom;
+                    start_y - stack_offset
+                }
+            };
             (x, y)
         }
         SidebarPosition::Bottom => {
-            let start_x = margins.left;
-            let x = start_x + stack_offset;
+            let anchor = ctx.config.interaction.anchor;
+            let x = match anchor {
+                SidebarAnchor::Right => sw - w - margins.right - stack_offset,
+                // Left is the default; Top/Bottom don't apply to horizontal stacking
+                SidebarAnchor::Left | SidebarAnchor::Top | SidebarAnchor::Bottom => {
+                    margins.left + stack_offset
+                }
+            };
 
             let visible_y = sh - h - margins.bottom;
             let hidden_y = sh - active_peek;
@@ -60,8 +80,14 @@ fn calculate_coordinates<C: NiriClient>(
             (x, y)
         }
         SidebarPosition::Top => {
-            let start_x = margins.left;
-            let x = start_x + stack_offset;
+            let anchor = ctx.config.interaction.anchor;
+            let x = match anchor {
+                SidebarAnchor::Right => sw - w - margins.right - stack_offset,
+                // Left is the default; Top/Bottom don't apply to horizontal stacking
+                SidebarAnchor::Left | SidebarAnchor::Top | SidebarAnchor::Bottom => {
+                    margins.left + stack_offset
+                }
+            };
 
             let visible_y = margins.top;
             let hidden_y = -h + active_peek;
@@ -850,6 +876,159 @@ mod tests {
                 y: PositionChange::SetFixed(y),
                 ..
             } if *y == 260.0
+        )));
+    }
+
+    #[test]
+    fn test_position_bottom_anchor_right() {
+        let temp_dir = tempdir().unwrap();
+        // Scenario: Bottom bar with anchor = right.
+        // Windows should stack Right-to-Left (X axis decreases).
+        let w1 = mock_window(1, false, true, 1, Some((1.0, 2.0)));
+        let w2 = mock_window(2, false, true, 1, Some((1.0, 2.0)));
+        let mock = MockNiri::new(vec![w1, w2]);
+
+        let mut config = mock_config();
+        config.interaction.position = SidebarPosition::Bottom;
+        config.interaction.anchor = SidebarAnchor::Right;
+        config.geometry.width = 100;
+        config.geometry.gap = 10;
+        config.margins.right = 20;
+
+        let mut state = AppState::default();
+        state.windows.push(WindowState {
+            id: 1,
+            width: 100,
+            height: 200,
+            is_floating: false,
+            position: None,
+        });
+        state.windows.push(WindowState {
+            id: 2,
+            width: 100,
+            height: 200,
+            is_floating: false,
+            position: None,
+        });
+
+        let mut ctx = Ctx {
+            state,
+            config,
+            socket: mock,
+            cache_dir: temp_dir.path().to_path_buf(),
+        };
+
+        reorder(&mut ctx).expect("Reorder failed");
+
+        let actions = &ctx.socket.sent_actions;
+
+        // Screen W: 1920, Width: 100, Margin Right: 20, Gap: 10
+        // Window 1 (First): X = 1920 - 100 - 20 - 0 = 1800
+        assert!(actions.iter().any(|a| matches!(a,
+            Action::MoveFloatingWindow { id: Some(1), x: PositionChange::SetFixed(x), .. }
+            if *x == 1800.0
+        )));
+
+        // Window 2 (Second): X = 1920 - 100 - 20 - (100 + 10) = 1690
+        assert!(actions.iter().any(|a| matches!(a,
+            Action::MoveFloatingWindow { id: Some(2), x: PositionChange::SetFixed(x), .. }
+            if *x == 1690.0
+        )));
+    }
+
+    #[test]
+    fn test_position_top_anchor_right() {
+        let temp_dir = tempdir().unwrap();
+        // Scenario: Top bar with anchor = right.
+        // Windows should stack Right-to-Left.
+        let w1 = mock_window(1, false, true, 1, Some((1.0, 2.0)));
+        let mock = MockNiri::new(vec![w1]);
+
+        let mut config = mock_config();
+        config.interaction.position = SidebarPosition::Top;
+        config.interaction.anchor = SidebarAnchor::Right;
+        config.geometry.width = 100;
+        config.margins.right = 20;
+
+        let mut state = AppState::default();
+        state.windows.push(WindowState {
+            id: 1,
+            width: 100,
+            height: 200,
+            is_floating: false,
+            position: None,
+        });
+
+        let mut ctx = Ctx {
+            state,
+            config,
+            socket: mock,
+            cache_dir: temp_dir.path().to_path_buf(),
+        };
+
+        reorder(&mut ctx).expect("Reorder failed");
+
+        let actions = &ctx.socket.sent_actions;
+
+        // Screen W: 1920, Width: 100, Margin Right: 20
+        // X = 1920 - 100 - 20 - 0 = 1800
+        assert!(actions.iter().any(|a| matches!(a,
+            Action::MoveFloatingWindow { id: Some(1), x: PositionChange::SetFixed(x), .. }
+            if *x == 1800.0
+        )));
+
+        // Y should be at top: margins.top = 50
+        assert!(actions.iter().any(|a| matches!(a,
+            Action::MoveFloatingWindow { id: Some(1), y: PositionChange::SetFixed(y), .. }
+            if *y == 50.0
+        )));
+    }
+
+    #[test]
+    fn test_position_right_anchor_left_fallback() {
+        let temp_dir = tempdir().unwrap();
+        // Scenario: Right side with anchor = left (nonsensical for vertical).
+        // Should fall back to Bottom behavior (stack from bottom upward).
+        let w1 = mock_window(1, false, true, 1, Some((1.0, 2.0)));
+        let mock = MockNiri::new(vec![w1]);
+
+        let mut config = mock_config();
+        config.interaction.position = SidebarPosition::Right;
+        config.interaction.anchor = SidebarAnchor::Left;
+        config.geometry.width = 300;
+        config.geometry.height = 200;
+        config.margins.right = 20;
+        config.margins.bottom = 50;
+
+        let mut state = AppState::default();
+        state.windows.push(WindowState {
+            id: 1,
+            width: 300,
+            height: 200,
+            is_floating: false,
+            position: None,
+        });
+
+        let mut ctx = Ctx {
+            state,
+            config,
+            socket: mock,
+            cache_dir: temp_dir.path().to_path_buf(),
+        };
+
+        reorder(&mut ctx).expect("Reorder failed");
+
+        let actions = &ctx.socket.sent_actions;
+
+        // Should behave like anchor = bottom (default)
+        // X = 1920 - 300 - 20 = 1600
+        // Y = 1080 - 200 - 50 = 830
+        assert!(actions.iter().any(|a| matches!(a,
+            Action::MoveFloatingWindow {
+                id: Some(1),
+                x: PositionChange::SetFixed(x),
+                y: PositionChange::SetFixed(y)
+            } if *x == 1600.0 && *y == 830.0
         )));
     }
 }
