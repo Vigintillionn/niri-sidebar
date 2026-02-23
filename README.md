@@ -19,13 +19,18 @@ https://github.com/user-attachments/assets/46f51b18-d85b-4d79-9c44-63e63649707a
 ### Option 1: Download Binary (Recommended)
 
 1.  Go to the [Releases](https://github.com/Vigintillionn/niri-sidebar/releases) page.
-2.  Download the `niri-sidebar` binary.
-3.  Make it executable and move it to your path:
+2.  Download the binary matching your architecture (e.g., `niri-sidebar-linux-x86_64`).
+3.  Rename it to `niri-sidebar`, make it executable, and move it to your path:
 
 ```bash
+# Example for x86_64
+mv niri-sidebar-linux-x86_64 niri-sidebar
 chmod +x niri-sidebar
+
+# Move to a directory in your PATH
 sudo mv niri-sidebar /usr/local/bin/
-# OR
+# OR for a local installation:
+mkdir -p ~/.local/bin
 mv niri-sidebar ~/.local/bin/
 ```
 
@@ -45,6 +50,26 @@ An unofficial AUR package is available:
 yay -S niri-sidebar-git
 ```
 > **Note:** This package is community-maintained on the AUR and is not officially maintained by the niri-sidebar project. Please review the PKGBUILD before installing.
+
+### Option 4: Void Linux (`xbps-src`)
+
+A Void Linux package is available as a template in the official [`void-packages`](https://github.com/void-linux/void-packages) repository.
+
+1. Clone the `void-packages` repository (if you haven’t already):
+```bash
+git clone https://github.com/void-linux/void-packages.git
+cd void-packages
+./xbps-src binary-bootstrap
+```
+2. Build the `niri-sidebar` package
+```bash
+./xbps-src pkg niri-sidebar
+```
+3. Install the `niri-sidebar` package
+```bash
+sudo xbps-install --repository=hostdir/binpkgs niri-sidebar
+```
+> **Note:** This package is community-maintained in the Void Linux community repository and is not officially maintained by the niri-sidebar project. Please review the template before installing.
 
 ## Niri configuration
 
