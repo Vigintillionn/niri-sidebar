@@ -4,6 +4,7 @@ on:
   push:
     tags:
       - "v*" # Triggers on tags like v0.1.0, v1.0.0, etc.
+  workflow_dispatch:
 
 env:
   CARGO_TERM_COLOR: always
@@ -12,8 +13,14 @@ env:
 jobs:
   build-and-release:
     name: Build and Release
-    runs-on: ubuntu-latest
-    
+    strategy:
+      matrix:
+        include:
+          - { os: "ubuntu-latest", target: "linux-x86_64" }
+          - { os: "ubuntu-24.04-arm", target: "linux-aarch64" }
+
+    runs-on: ${{ matrix.os }}
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -22,19 +29,21 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
 
       - name: Build Release
-        run: cargo build --release --verbose
+        run: cargo build --release --verbose --locked
 
       - name: Prepare Binary
         run: |
-          mv target/release/${{ env.BINARY_NAME }} ${{ env.BINARY_NAME }}
-          tar -czvf ${{ env.BINARY_NAME }}-linux-x86_64.tar.gz ${{ env.BINARY_NAME }}
+          BIN_NAME=${{ env.BINARY_NAME }}-${{ matrix.target }}
+          echo "BIN_NAME=$BIN_NAME" >> "$GITHUB_ENV"
+          mv target/release/${{ env.BINARY_NAME }} "$BIN_NAME"
+          tar -czvf "$BIN_NAME.tar.gz" "$BIN_NAME"
 
       - name: Create Release
         uses: softprops/action-gh-release@v1
         if: startsWith(github.ref, 'refs/tags/')
         with:
           files: |
-            ${{ env.BINARY_NAME }}
-            ${{ env.BINARY_NAME }}-linux-x86_64.tar.gz
+            ${{ env.BIN_NAME }}
+            ${{ env.BIN_NAME }}.tar.gz
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
