@@ -38,6 +38,14 @@ cargo build --release
 cp target/release/niri-sidebar ~/.local/bin/
 ```
 
+### Option 3: Arch Linux (AUR)
+
+An unofficial AUR package is available:
+```bash
+yay -S niri-sidebar-git
+```
+> **Note:** This package is community-maintained on the AUR and is not officially maintained by the niri-sidebar project. Please review the PKGBUILD before installing.
+
 ## Niri configuration
 
 Add the following bindings to your niri `config.kdl` file.
