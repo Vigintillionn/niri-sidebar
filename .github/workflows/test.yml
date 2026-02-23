@@ -5,6 +5,7 @@ on:
     branches: [ "main", "master" ]
   pull_request:
     branches: [ "main", "master" ]
+  workflow_dispatch:
 
 env:
   CARGO_TERM_COLOR: always
@@ -12,7 +13,13 @@ env:
 jobs:
   test:
     name: Test on Ubuntu
-    runs-on: [ubuntu-latest, ubuntu-24.04-arm]
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+          - os: ubuntu-24.04-arm
+
+    runs-on: ${{ matrix.os }}
 
     steps:
       - name: Checkout code

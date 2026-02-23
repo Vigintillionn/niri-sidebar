@@ -4,6 +4,7 @@ on:
   push:
     tags:
       - "v*" # Triggers on tags like v0.1.0, v1.0.0, etc.
+  workflow_dispatch:
 
 env:
   CARGO_TERM_COLOR: always
