@@ -51,6 +51,8 @@ pub struct Interaction {
     pub position: SidebarPosition,
     #[serde(default = "default_sticky")]
     pub sticky: bool,
+    #[serde(default)]
+    pub focus_on_unhide: bool,
 }
 
 impl Interaction {

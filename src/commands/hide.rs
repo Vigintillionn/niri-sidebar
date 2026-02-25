@@ -3,11 +3,18 @@ use crate::commands::reorder;
 use crate::niri::NiriClient;
 use crate::state::save_state;
 use anyhow::Result;
+use niri_ipc::Action;
 
 pub fn toggle_visibility<C: NiriClient>(ctx: &mut Ctx<C>) -> Result<()> {
-    ctx.state.is_hidden = !ctx.state.is_hidden;
+    let was_hidden = ctx.state.is_hidden;
+    ctx.state.is_hidden = !was_hidden;
     save_state(&ctx.state, &ctx.cache_dir)?;
     reorder(ctx)?;
+
+    if was_hidden && ctx.config.interaction.focus_on_unhide {
+        let _ = ctx.socket.send_action(Action::FocusFloating {});
+    }
+
     Ok(())
 }
 

@@ -10,6 +10,7 @@ use anyhow::Result;
 use fslock::LockFile;
 use niri_ipc::socket::Socket;
 use niri_ipc::{Event, Request, Window};
+use std::io;
 
 pub fn listen(mut ctx: Ctx<Socket>) -> Result<()> {
     let response = ctx.socket.send(Request::EventStream)?;
@@ -31,6 +32,9 @@ pub fn listen(mut ctx: Ctx<Socket>) -> Result<()> {
                 Event::WindowOpenedOrChanged { window } => handle_new_window(&window)?,
                 _ => {}
             },
+            // InvalidData comes from serde failing to parse an unknown event
+            // variant (e.g. newer niri version). Skip it and keep listening.
+            Err(e) if e.kind() == io::ErrorKind::InvalidData => continue,
             Err(e) => anyhow::bail!("Event stream error: {e}"),
         }
     }
