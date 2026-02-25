@@ -1,4 +1,5 @@
 mod close;
+mod cycle;
 mod flip;
 mod focus;
 mod hide;
@@ -8,6 +9,7 @@ mod reorder;
 mod togglewindow;
 
 pub use close::close;
+pub use cycle::cycle;
 pub use flip::toggle_flip;
 pub use focus::focus;
 pub use hide::toggle_visibility;

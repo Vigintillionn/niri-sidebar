@@ -23,6 +23,11 @@ enum Commands {
     ToggleVisibility,
     /// Reverse the order of windows in the stack
     Flip,
+    /// Rotate the window order in the stack
+    Cycle {
+        #[arg(value_enum, default_value_t = Direction::Next)]
+        direction: Direction,
+    },
     /// Force re-stacking of windows
     Reorder,
     /// Close the focused window and reorder the sidebar
@@ -90,6 +95,7 @@ fn main() -> Result<()> {
         Commands::ToggleWindow => commands::toggle_window(&mut ctx)?,
         Commands::ToggleVisibility => commands::toggle_visibility(&mut ctx)?,
         Commands::Flip => commands::toggle_flip(&mut ctx)?,
+        Commands::Cycle { direction } => commands::cycle(&mut ctx, direction)?,
         Commands::Reorder => commands::reorder(&mut ctx)?,
         Commands::Close => commands::close(&mut ctx)?,
         Commands::Focus { direction } => commands::focus(&mut ctx, direction)?,
