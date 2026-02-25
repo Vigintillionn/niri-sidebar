@@ -35,7 +35,7 @@
         niri-sidebar = prev.callPackage ./nix/package.nix { };
       };
 
-      homeManagerModules.default = import ./nix/hm-module.nix self;
-      homeManagerModules.niri-sidebar = self.homeManagerModules.default;
+      homeModules.default = import ./nix/hm-module.nix self;
+      homeModules.niri-sidebar = self.homeModules.default;
     };
 }
