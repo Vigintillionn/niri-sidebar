@@ -28,6 +28,16 @@
           niri-sidebar = pkgs.callPackage ./nix/package.nix { };
           default = self.packages.${system}.niri-sidebar;
         };
+
+        devShells.default = pkgs.mkShell {
+          inputsFrom = [ self.packages.${system}.niri-sidebar ];
+          packages = with pkgs; [
+            cargo
+            rustc
+            clippy
+            rustfmt
+          ];
+        };
       }
     )
     // {

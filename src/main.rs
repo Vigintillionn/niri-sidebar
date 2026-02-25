@@ -1,5 +1,6 @@
 use anyhow::Result;
-use clap::{Parser, Subcommand};
+use clap::{CommandFactory, Parser, Subcommand};
+use clap_complete::Shell;
 use fslock::LockFile;
 use niri_sidebar::config::load_config;
 use niri_sidebar::state::{get_default_cache_dir, load_state};
@@ -40,14 +41,24 @@ enum Commands {
     Init,
     /// Run a daemon to listen for window close events
     Listen,
+    /// Generate shell completions
+    Completions {
+        #[arg(value_enum)]
+        shell: Shell,
+    },
 }
 
 fn main() -> Result<()> {
     let cli = Cli::parse();
 
-    // Init doesn't require locks or state loading
-    if let Commands::Init = cli.command {
-        return config::init_config();
+    // These commands don't require locks or state loading
+    match &cli.command {
+        Commands::Init => return config::init_config(),
+        Commands::Completions { shell } => {
+            clap_complete::generate(*shell, &mut Cli::command(), "niri-sidebar", &mut std::io::stdout());
+            return Ok(());
+        }
+        _ => {}
     }
 
     let cache_dir = get_default_cache_dir()?;
@@ -83,7 +94,7 @@ fn main() -> Result<()> {
         Commands::Close => commands::close(&mut ctx)?,
         Commands::Focus { direction } => commands::focus(&mut ctx, direction)?,
         Commands::MoveFrom { workspace } => commands::move_from(&mut ctx, workspace)?,
-        Commands::Init => unreachable!(),
+        Commands::Init | Commands::Completions { .. } => unreachable!(),
         Commands::Listen => commands::listen(ctx)?,
     }
 

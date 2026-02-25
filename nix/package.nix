@@ -1,6 +1,7 @@
 {
   lib,
   rustPlatform,
+  installShellFiles,
   pkg-config,
   wayland,
   libxkbcommon,
@@ -24,11 +25,21 @@ rustPlatform.buildRustPackage {
 
   cargoLock.lockFile = ../Cargo.lock;
 
-  nativeBuildInputs = [ pkg-config ];
+  nativeBuildInputs = [
+    installShellFiles
+    pkg-config
+  ];
   buildInputs = [
     wayland
     libxkbcommon
   ];
+
+  postInstall = ''
+    installShellCompletion --cmd niri-sidebar \
+      --bash <($out/bin/niri-sidebar completions bash) \
+      --zsh <($out/bin/niri-sidebar completions zsh) \
+      --fish <($out/bin/niri-sidebar completions fish)
+  '';
 
   meta = {
     description = "A sidebar for the Niri window manager";
