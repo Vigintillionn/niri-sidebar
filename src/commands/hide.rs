@@ -11,8 +11,12 @@ pub fn toggle_visibility<C: NiriClient>(ctx: &mut Ctx<C>) -> Result<()> {
     save_state(&ctx.state, &ctx.cache_dir)?;
     reorder(ctx)?;
 
-    if was_hidden && ctx.config.interaction.focus_on_unhide {
-        let _ = ctx.socket.send_action(Action::FocusFloating {});
+    if ctx.config.interaction.auto_focus_layer {
+        if was_hidden {
+            ctx.socket.send_action(Action::FocusFloating {})?;
+        } else {
+            ctx.socket.send_action(Action::FocusTiling {})?;
+        }
     }
 
     Ok(())

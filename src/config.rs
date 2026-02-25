@@ -52,7 +52,7 @@ pub struct Interaction {
     #[serde(default = "default_sticky")]
     pub sticky: bool,
     #[serde(default)]
-    pub focus_on_unhide: bool,
+    pub auto_focus_layer: bool,
 }
 
 impl Interaction {
