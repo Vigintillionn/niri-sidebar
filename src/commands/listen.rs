@@ -12,21 +12,28 @@ use niri_ipc::socket::Socket;
 use niri_ipc::{Event, Request, Window};
 
 pub fn listen(mut ctx: Ctx<Socket>) -> Result<()> {
-    let _ = ctx.socket.send(Request::EventStream)?;
+    let response = ctx.socket.send(Request::EventStream)?;
+    match response {
+        Ok(niri_ipc::Response::Handled) => {}
+        Ok(other) => anyhow::bail!("Unexpected response to EventStream request: {other:?}"),
+        Err(msg) => anyhow::bail!("Niri rejected EventStream request: {msg}"),
+    }
+
     let mut read_event = ctx.socket.read_events();
     println!("niri-sidebar: Listening for window events...");
 
-    while let Ok(event) = read_event() {
-        match event {
-            Event::WindowClosed { id } => handle_close_event(id)?,
-            Event::WindowFocusChanged { .. } => handle_focus_change()?,
-            Event::WorkspaceActivated { id, focused: true } => handle_workspace_focus(id)?,
-            Event::WindowOpenedOrChanged { window } => handle_new_window(&window)?,
-            _ => {}
+    loop {
+        match read_event() {
+            Ok(event) => match event {
+                Event::WindowClosed { id } => handle_close_event(id)?,
+                Event::WindowFocusChanged { .. } => handle_focus_change()?,
+                Event::WorkspaceActivated { id, focused: true } => handle_workspace_focus(id)?,
+                Event::WindowOpenedOrChanged { window } => handle_new_window(&window)?,
+                _ => {}
+            },
+            Err(e) => anyhow::bail!("Event stream error: {e}"),
         }
     }
-
-    Ok(())
 }
 
 fn get_ctx() -> Result<(Ctx<Socket>, LockFile)> {
