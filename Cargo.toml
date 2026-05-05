@@ -11,7 +11,7 @@ fslock = "0.2.1"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 toml = "0.9.11"
-niri-ipc = "25.11.0"
+niri-ipc = "26.4.0"
 regex = "1.12.3"
 serde_regex = "1.1.0"
 
