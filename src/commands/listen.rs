@@ -16,7 +16,15 @@ pub fn listen(mut ctx: Ctx<Socket>) -> Result<()> {
     let mut read_event = ctx.socket.read_events();
     println!("niri-sidebar: Listening for window events...");
 
-    while let Ok(event) = read_event() {
+    loop {
+        let event = match read_event() {
+            Ok(e) => e,
+            Err(e) => {
+                eprintln!("niri-sidebar: IPC error: {}", e);
+                anyhow::bail!("Fatal IPC error: {}", e);
+            }
+        };
+
         match event {
             Event::WindowClosed { id } => handle_close_event(id)?,
             Event::WindowFocusChanged { .. } => handle_focus_change()?,
@@ -25,8 +33,6 @@ pub fn listen(mut ctx: Ctx<Socket>) -> Result<()> {
             _ => {}
         }
     }
-
-    Ok(())
 }
 
 fn get_ctx() -> Result<(Ctx<Socket>, LockFile)> {
