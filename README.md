@@ -71,6 +71,79 @@ sudo xbps-install --repository=hostdir/binpkgs niri-sidebar
 ```
 > **Note:** This package is community-maintained in the Void Linux community repository and is not officially maintained by the niri-sidebar project. Please review the template before installing.
 
+### Option 5: Nix / Home Manager
+
+A [Nix flake](https://nixos.wiki/wiki/Flakes) is provided with a Home Manager module for declarative configuration.
+
+#### Flake usage
+
+Add `niri-sidebar` to your flake inputs:
+
+```nix
+{
+  inputs = {
+    niri-sidebar.url = "github:Vigintillionn/niri-sidebar";
+  };
+
+  outputs =
+    { self, nixpkgs, niri-sidebar, ... }:
+    {
+      homeConfigurations."user" = nixpkgs.lib.nixosSystem {
+        modules = [
+          niri-sidebar.homeModules.default
+          {
+            programs.niri-sidebar = {
+              enable = true;
+              settings = {
+                geometry = {
+                  width = 400;
+                  height = 335;
+                  gap = 10;
+                };
+                margins = {
+                  top = 50;
+                  right = 10;
+                  left = 10;
+                  bottom = 10;
+                };
+                interaction = {
+                  position = "right";
+                  peek = 10;
+                  focus_peek = 50;
+                  sticky = false;
+                };
+              };
+            };
+          }
+        ];
+      };
+    };
+}
+```
+
+#### Legacy `default.nix` usage
+
+```nix
+{ pkgs ? import <nixpkgs> { } }:
+
+let
+  niri-sidebar = import (builtins.fetchTarball {
+    url = "https://github.com/Vigintillionn/niri-sidebar/archive/main.tar.gz";
+  }) { inherit pkgs; };
+in
+{
+  homeModule = niri-sidebar.homeModule;
+  package = niri-sidebar.package;
+}
+```
+
+#### Binary cache / ad-hoc
+
+```bash
+nix run github:Vigintillionn/niri-sidebar -- toggle-window
+nix build github:Vigintillionn/niri-sidebar
+```
+
 ## Niri configuration
 
 Add the following bindings to your niri `config.kdl` file.
